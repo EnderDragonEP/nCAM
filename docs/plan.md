@@ -1,6 +1,6 @@
 # nCAM — build plan
 
-Status: **approved 2026-11-11.** Steps 0–3 are built and waiting for a test on the phone; step 4 is next. Based on [camera-protocol.md](camera-protocol.md), section 0 (measured on the real camera, 2026-11-11).
+Status: **approved 2026-11-11.** Steps 0–3 are built and confirmed on the phone and camera. Step 4 (files and downloads) is built and waiting for a test on the phone; step 5 is next.
 
 ## What the tests decided
 

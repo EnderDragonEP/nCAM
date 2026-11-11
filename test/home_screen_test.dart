@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ncam/camera/fake_transport.dart';
+import 'package:ncam/downloads/fake_downloader.dart';
 import 'package:ncam/state/credentials.dart';
+import 'package:ncam/state/downloads.dart';
 import 'package:ncam/state/session.dart';
 import 'package:ncam/ui/home_screen.dart';
 
@@ -15,6 +17,7 @@ void main() {
       ProviderScope(
         overrides: [
           transportProvider.overrideWithValue(fake),
+          downloaderProvider.overrideWithValue(FakeDownloader()),
           credentialStoreProvider.overrideWithValue(MemoryCredentialStore()),
           cameraRetryDelayProvider.overrideWithValue(Duration.zero),
           clockProbeDelayProvider.overrideWithValue(Duration.zero),
@@ -34,7 +37,7 @@ void main() {
     expect(find.text('Recording'), findsOneWidget);
     expect(find.text('DVR52AFHW3_YL_V3.19_TS'), findsOneWidget);
     expect(find.textContaining('Clock synced at'), findsOneWidget);
-    expect(find.text('6 files on the card'), findsOneWidget);
+    expect(find.text('3 recordings'), findsOneWidget);
     expect(fake.timeSet, isNotNull);
   });
 }

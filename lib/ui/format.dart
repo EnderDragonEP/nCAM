@@ -23,3 +23,23 @@ String formatClock(DateTime t) =>
 
 String formatDateTime(DateTime t) =>
     '${t.year}-${_two(t.month)}-${_two(t.day)} ${formatClock(t)}';
+
+const _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const _months = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
+
+/// "Wed 11 Nov 2026"
+String formatDay(DateTime t) =>
+    '${_weekdays[t.weekday - 1]} ${t.day} ${_months[t.month - 1]} ${t.year}';

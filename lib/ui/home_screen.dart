@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../camera/models.dart';
 import '../camera/transport.dart';
+import '../state/downloads.dart';
 import '../state/session.dart';
 import 'format.dart';
+import 'recordings_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -431,53 +433,33 @@ class _TimeCard extends ConsumerWidget {
   }
 }
 
-class _FilesCard extends StatelessWidget {
+class _FilesCard extends ConsumerWidget {
   const _FilesCard({required this.files});
   final List<CameraFile> files;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final total = files.fold<int>(0, (sum, f) => sum + f.size);
-    final sorted = [...files]
-      ..sort((a, b) {
-        final ta = a.time, tb = b.time;
-        if (ta == null || tb == null) return b.name.compareTo(a.name);
-        final c = tb.compareTo(ta);
-        return c != 0 ? c : a.name.compareTo(b.name);
-      });
-    final newest = sorted.take(6).toList();
+    final recordings = ref.watch(recordingsProvider).length;
+    final active =
+        ref.watch(downloadJobsProvider).value?.where((j) => j.active).length ??
+        0;
     return Card(
-      child: Column(
-        children: [
-          ListTile(
-            leading: const Icon(Icons.video_library_outlined),
-            title: Text('${files.length} files on the card'),
-            subtitle: Text(
-              '${formatBytes(total)} in total. Browsing and downloading come in the next step.',
-            ),
-          ),
-          for (final f in newest)
-            ListTile(
-              dense: true,
-              leading: Icon(switch (f.lens) {
-                Lens.front => Icons.videocam_outlined,
-                Lens.rear => Icons.switch_video_outlined,
-                Lens.unknown => Icons.insert_drive_file_outlined,
-              }),
-              title: Text(f.name),
-              subtitle: Text(
-                [
-                  switch (f.lens) {
-                    Lens.front => 'Front',
-                    Lens.rear => 'Rear',
-                    Lens.unknown => 'File',
-                  },
-                  if (f.time != null) formatDateTime(f.time!),
-                  formatBytes(f.size),
-                ].join(' · '),
-              ),
-            ),
-        ],
+      clipBehavior: Clip.antiAlias,
+      child: ListTile(
+        leading: const Icon(Icons.video_library_outlined),
+        title: Text(recordings == 1 ? '1 recording' : '$recordings recordings'),
+        subtitle: Text(
+          [
+            '${files.length} files, ${formatBytes(total)}',
+            if (active > 0)
+              active == 1 ? '1 download running' : '$active downloads queued',
+          ].join(' · '),
+        ),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => const RecordingsScreen()),
+        ),
       ),
     );
   }

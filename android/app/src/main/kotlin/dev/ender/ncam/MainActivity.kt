@@ -5,15 +5,19 @@ import io.flutter.embedding.engine.FlutterEngine
 
 class MainActivity : FlutterActivity() {
     private var bridge: CameraBridge? = null
+    private var downloads: DownloadBridge? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         bridge = CameraBridge(this, flutterEngine.dartExecutor.binaryMessenger)
+        downloads = DownloadBridge(this, flutterEngine.dartExecutor.binaryMessenger)
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
         bridge?.dispose()
         bridge = null
+        downloads?.dispose()
+        downloads = null
         super.cleanUpFlutterEngine(flutterEngine)
     }
 

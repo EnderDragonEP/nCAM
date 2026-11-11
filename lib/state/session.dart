@@ -58,6 +58,7 @@ class SessionState {
     this.error,
     this.status,
     this.files,
+    this.writing = const {},
     this.timeSync,
   });
 
@@ -71,6 +72,10 @@ class SessionState {
   final String? error;
   final CameraStatus? status;
   final List<CameraFile>? files;
+
+  /// Paths of the clips the camera is writing right now. They are still growing, so they
+  /// are not offered for download.
+  final Set<String> writing;
   final TimeSync? timeSync;
 
   bool get connected => link == LinkState.connected;
@@ -85,6 +90,7 @@ class SessionState {
     Object? error = _keep,
     Object? status = _keep,
     Object? files = _keep,
+    Set<String>? writing,
     Object? timeSync = _keep,
   }) => SessionState(
     loaded: loaded ?? this.loaded,
@@ -94,6 +100,7 @@ class SessionState {
     error: error == _keep ? this.error : error as String?,
     status: status == _keep ? this.status : status as CameraStatus?,
     files: files == _keep ? this.files : files as List<CameraFile>?,
+    writing: writing ?? this.writing,
     timeSync: timeSync == _keep ? this.timeSync : timeSync as TimeSync?,
   );
 }
@@ -163,7 +170,12 @@ class SessionController extends Notifier<SessionState> {
     _generation++;
     await _transport.disconnect();
     if (ref.mounted) {
-      state = state.copyWith(busy: false, status: null, files: null);
+      state = state.copyWith(
+        busy: false,
+        status: null,
+        files: null,
+        writing: const {},
+      );
     }
   }
 
@@ -222,6 +234,11 @@ class SessionController extends Notifier<SessionState> {
       final files = await _api.listFiles();
       if (!ref.mounted || gen != _generation) return;
       state = state.copyWith(status: status, files: files);
+      await _probeWriting(
+        status: status,
+        before: files,
+        stale: () => !ref.mounted || gen != _generation,
+      );
     } catch (e) {
       if (!ref.mounted || gen != _generation) return;
       state = state.copyWith(error: 'Camera error: $e');
@@ -260,16 +277,18 @@ class SessionController extends Notifier<SessionState> {
     required bool Function() stale,
   }) async {
     Duration? ahead;
-    if (status.isRecording) {
-      try {
-        await Future<void>.delayed(ref.read(clockProbeDelayProvider));
-        final after = await _api.listFiles();
-        if (stale()) return;
-        state = state.copyWith(files: after);
+    try {
+      final after = await _probeWriting(
+        status: status,
+        before: before,
+        stale: stale,
+      );
+      if (stale()) return;
+      if (after != null) {
         ahead = estimateCameraAhead(before, after, ref.read(clockProvider)());
-      } catch (_) {
-        // The estimate is a nicety; the sync itself still goes ahead.
       }
+    } catch (_) {
+      // The estimate is a nicety; the sync itself still goes ahead.
     }
     final now = ref.read(clockProvider)();
     try {
@@ -285,9 +304,32 @@ class SessionController extends Notifier<SessionState> {
       );
     }
   }
+
+  /// Lists the files a second time to find the clips that are still growing. Returns the
+  /// second listing, or null when the camera is not recording.
+  Future<List<CameraFile>?> _probeWriting({
+    required CameraStatus status,
+    required List<CameraFile> before,
+    required bool Function() stale,
+  }) async {
+    if (!status.isRecording) {
+      state = state.copyWith(writing: const {});
+      return null;
+    }
+    await Future<void>.delayed(ref.read(clockProbeDelayProvider));
+    if (stale()) return null;
+    final after = await _api.listFiles();
+    if (stale()) return null;
+    state = state.copyWith(
+      files: after,
+      writing: {for (final f in filesBeingWritten(before, after)) f.path},
+    );
+    return after;
+  }
 }
 
-/// Files whose size or write time changed between two listings: the clips being recorded.
+/// Files that changed between two listings, or appeared in the second one: the clips being
+/// recorded.
 List<CameraFile> filesBeingWritten(
   List<CameraFile> before,
   List<CameraFile> after,
@@ -295,8 +337,10 @@ List<CameraFile> filesBeingWritten(
   final old = {for (final f in before) f.path: f};
   return [
     for (final f in after)
-      if (old[f.path] case final o?
-          when o.size != f.size || o.writeTime != f.writeTime)
+      if (switch (old[f.path]) {
+        null => true,
+        final o => o.size != f.size || o.writeTime != f.writeTime,
+      })
         f,
   ];
 }
