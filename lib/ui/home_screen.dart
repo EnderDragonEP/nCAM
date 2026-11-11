@@ -7,6 +7,7 @@ import '../state/downloads.dart';
 import '../state/session.dart';
 import 'fast_mode.dart';
 import 'format.dart';
+import 'live_screen.dart';
 import 'recordings_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -54,6 +55,23 @@ class HomeScreen extends ConsumerWidget {
                 if (s.connected && s.status != null) ...[
                   const SizedBox(height: 12),
                   _StatusCard(status: s.status!),
+                  const SizedBox(height: 12),
+                  Card(
+                    clipBehavior: Clip.antiAlias,
+                    child: ListTile(
+                      leading: const Icon(Icons.live_tv_outlined),
+                      title: const Text('Live view'),
+                      subtitle: const Text(
+                        'See what the camera sees right now.',
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const LiveScreen(),
+                        ),
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 12),
                   _TimeCard(state: s),
                   if (s.files != null) ...[

@@ -25,6 +25,41 @@ class FakeCameraTransport implements CameraTransport {
   /// Status the camera returns for set-date / set-time.
   int setTimeStatus = 0;
 
+  /// Live view: when true, frames only flow after the app sends "start live view" (2015).
+  bool liveNeedsStart = false;
+  bool liveStarted = false;
+  int viewIndex = 2;
+  bool screenKeptOn = false;
+
+  /// URLs the app opened as a live stream.
+  final List<String> liveOpened = [];
+  StreamController<Uint8List>? _live;
+
+  /// Pushes one frame to whoever is watching. Returns false if nobody is, or if the
+  /// camera has not been asked to start.
+  bool emitFrame([List<int> bytes = const [0xFF, 0xD8, 0xFF, 0xD9]]) {
+    final live = _live;
+    if (live == null || live.isClosed || !live.hasListener) return false;
+    if (liveNeedsStart && !liveStarted) return false;
+    live.add(Uint8List.fromList(bytes));
+    return true;
+  }
+
+  /// Ends the current stream the way a dropped connection does.
+  void breakLive(String message) =>
+      _live?.addError(TransportException('stream_ended', message));
+
+  @override
+  Stream<Uint8List> liveFrames(String url) {
+    liveOpened.add(url);
+    final c = StreamController<Uint8List>();
+    _live = c;
+    return c.stream;
+  }
+
+  @override
+  Future<void> keepScreenOn(bool on) async => screenKeptOn = on;
+
   /// Every URL requested, in order.
   final List<String> requests = [];
 
@@ -98,6 +133,22 @@ class FakeCameraTransport implements CameraTransport {
       case 3006:
         timeSet = q['str'];
         body = _function(3006, status: setTimeStatus);
+      case 2019:
+        body =
+            '<?xml version="1.0" encoding="UTF-8" ?>\n<LIST>\n'
+            '<MovieLiveViewLink>http://192.168.1.254:8192</MovieLiveViewLink>\n'
+            '<PhotoLiveViewLink>http://192.168.1.254:8192</PhotoLiveViewLink>\n</LIST>\n';
+      case 2015:
+        liveStarted = true;
+        body = _function(2015);
+      case 3014:
+        body =
+            '<?xml version="1.0" encoding="UTF-8" ?>\n<Function>\n'
+            '<Cmd>2007</Cmd>\n<Status>1</Status>\n'
+            '<Cmd>3028</Cmd>\n<Status>$viewIndex</Status>\n</Function>';
+      case 3028:
+        viewIndex = int.parse(q['par']!);
+        body = _function(3028);
       case 3015:
         for (final f in files.where((f) => f.recording)) {
           f.size += 2 * 1024 * 1024;

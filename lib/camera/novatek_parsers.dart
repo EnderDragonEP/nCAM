@@ -48,6 +48,33 @@ NovatekReply parseReply(String body) {
   );
 }
 
+/// Reply to command 3014: a flat run of `<Cmd>id</Cmd><Status>value</Status>` pairs giving
+/// the current value of every setting.
+Map<int, String> parseCurrentValues(String body) {
+  final root = _parse(body).rootElement;
+  final values = <int, String>{};
+  int? cmd;
+  for (final e in root.childElements) {
+    if (e.name.local == 'Cmd') {
+      cmd = int.tryParse(e.innerText.trim());
+    } else if (e.name.local == 'Status' && cmd != null) {
+      values[cmd] = e.innerText.trim();
+      cmd = null;
+    }
+  }
+  return values;
+}
+
+/// Reply to command 2019. Returns the movie-mode live view URL, or null if absent.
+String? parseLiveViewLink(String body) {
+  final link = _parse(body)
+      .findAllElements('MovieLiveViewLink')
+      .firstOrNull
+      ?.innerText
+      .trim();
+  return (link == null || link.isEmpty) ? null : link;
+}
+
 /// `A:\Novatek\Movie\x.TS` -> `/Novatek/Movie/x.TS`
 String fpathToUrlPath(String fpath) =>
     fpath.replaceFirst(RegExp(r'^[A-Za-z]:'), '').replaceAll(r'\', '/');

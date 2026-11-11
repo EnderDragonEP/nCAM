@@ -73,6 +73,23 @@ class PlatformCameraTransport implements CameraTransport {
     ];
   }
 
+  static const _live = EventChannel('ncam/camera/live');
+
+  @override
+  Stream<Uint8List> liveFrames(String url) => _live
+      .receiveBroadcastStream({'url': url})
+      .map((e) => e as Uint8List)
+      .handleError(
+        (Object e) => throw TransportException(
+          'stream_ended',
+          e is PlatformException ? (e.message ?? '') : '$e',
+        ),
+      );
+
+  @override
+  Future<void> keepScreenOn(bool on) =>
+      _guard(() => _methods.invokeMethod<void>('keepScreenOn', {'on': on}));
+
   Future<T> _guard<T>(Future<T> Function() call) async {
     try {
       return await call();

@@ -11,7 +11,9 @@ import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import android.view.WindowManager
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
 
 /** Platform-channel front end for [CameraLink]. Channel names are mirrored in Dart. */
 class CameraBridge(private val activity: Activity, messenger: BinaryMessenger) :
@@ -25,12 +27,61 @@ class CameraBridge(private val activity: Activity, messenger: BinaryMessenger) :
     private val listener: (String) -> Unit = { s -> main.post { sink?.success(s) } }
     private var pendingScan: MethodChannel.Result? = null
 
+    // Live view: one reader at a time, started when Dart listens and stopped on cancel.
+    private val live = EventChannel(messenger, "ncam/camera/live")
+    private var liveReader: MjpegReader? = null
+    private val framePending = AtomicBoolean(false)
+
     init {
         methods.setMethodCallHandler(this)
         events.setStreamHandler(this)
+        live.setStreamHandler(object : EventChannel.StreamHandler {
+            override fun onListen(arguments: Any?, sink: EventChannel.EventSink) {
+                stopLive()
+                val url = (arguments as? Map<*, *>)?.get("url") as? String
+                if (url == null) {
+                    sink.error("bad_args", "url is missing", null)
+                    return
+                }
+                framePending.set(false)
+                lateinit var reader: MjpegReader
+                reader = MjpegReader(
+                    url,
+                    onFrame = { frame ->
+                        // Drop frames the UI has not caught up with instead of queueing them.
+                        if (framePending.compareAndSet(false, true)) {
+                            main.post {
+                                framePending.set(false)
+                                if (liveReader === reader) sink.success(frame)
+                            }
+                        }
+                    },
+                    onEnd = { error ->
+                        main.post {
+                            if (liveReader === reader) {
+                                liveReader = null
+                                sink.error("stream_ended", error, null)
+                            }
+                        }
+                    },
+                )
+                liveReader = reader
+                reader.start()
+            }
+
+            override fun onCancel(arguments: Any?) = stopLive()
+        })
+    }
+
+    private fun stopLive() {
+        liveReader?.stop()
+        liveReader = null
     }
 
     fun dispose() {
+        stopLive()
+        live.setStreamHandler(null)
+        activity.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         methods.setMethodCallHandler(null)
         events.setStreamHandler(null)
         CameraLink.removeListener(listener)
@@ -89,6 +140,13 @@ class CameraBridge(private val activity: Activity, messenger: BinaryMessenger) :
             }
 
             "scan" -> scan(result)
+
+            "keepScreenOn" -> {
+                val flag = WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+                if (call.argument<Boolean>("on") == true) activity.window.addFlags(flag)
+                else activity.window.clearFlags(flag)
+                result.success(null)
+            }
 
             else -> result.notImplemented()
         }

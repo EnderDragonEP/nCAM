@@ -15,6 +15,19 @@ abstract class CameraApi {
   /// Sets the camera's date and time. Throws if the camera rejects either part.
   /// The new time shows in the name of the next clip, not the one being recorded.
   Future<void> setTime(DateTime time);
+
+  /// Where the live view is served.
+  Future<String> liveViewUrl();
+
+  /// Asks the camera to start sending the live view. Only needed if the stream stays
+  /// silent; the vendor app sends it before opening its player.
+  Future<void> startLiveView();
+
+  /// Which picture the camera shows (front, rear, both...), as the camera's own index, or
+  /// null if the camera does not report one.
+  Future<int?> viewIndex();
+
+  Future<void> setViewIndex(int index);
 }
 
 /// Novatek HTTP protocol, as documented in docs/camera-protocol.md.
@@ -24,7 +37,14 @@ class NovatekCameraApi implements CameraApi {
   final CameraTransport _transport;
   final String baseUrl;
 
+  static const cmdLiveViewStart = 2015;
   static const cmdRecordingTime = 2016;
+  static const cmdLiveViewLinks = 2019;
+  static const cmdCurrentValues = 3014;
+  static const cmdViewIndex = 3028;
+
+  /// Used when the camera does not answer 2019. Measured on the real camera.
+  static const defaultLiveViewUrl = 'http://192.168.1.254:8192';
   static const cmdSetDate = 3005;
   static const cmdSetTime = 3006;
   static const cmdFirmware = 3012;
@@ -85,6 +105,27 @@ class NovatekCameraApi implements CameraApi {
   @override
   Future<List<CameraFile>> listFiles() async =>
       parseFileList(await _body(cmdFileList));
+
+  @override
+  Future<String> liveViewUrl() async {
+    try {
+      return parseLiveViewLink(await _body(cmdLiveViewLinks)) ??
+          defaultLiveViewUrl;
+    } on CameraProtocolException {
+      return defaultLiveViewUrl;
+    }
+  }
+
+  @override
+  Future<void> startLiveView() => _ok(cmdLiveViewStart, par: 1);
+
+  @override
+  Future<int?> viewIndex() async => int.tryParse(
+    parseCurrentValues(await _body(cmdCurrentValues))[cmdViewIndex] ?? '',
+  );
+
+  @override
+  Future<void> setViewIndex(int index) => _ok(cmdViewIndex, par: index);
 
   @override
   Future<void> setTime(DateTime time) async {

@@ -57,4 +57,12 @@ abstract class CameraTransport {
 
   /// Nearby Wi-Fi names, strongest first. May ask for a permission.
   Future<List<WifiNetworkInfo>> scan();
+
+  /// The camera's live view at [url] as a stream of JPEG images. The stream starts when
+  /// listened to, stops when cancelled, and ends with an error if the camera stops
+  /// sending. Frames the listener is too slow for are dropped.
+  Stream<Uint8List> liveFrames(String url);
+
+  /// Keeps the phone's screen from turning off (for the live view).
+  Future<void> keepScreenOn(bool on);
 }
