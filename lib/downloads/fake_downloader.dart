@@ -96,4 +96,39 @@ class FakeDownloader implements Downloader {
 
   @override
   Future<Map<String, int>> localFiles() async => Map.of(local);
+
+  FastModeStatus fast = const FastModeStatus();
+  final _fastController = StreamController<FastModeStatus>.broadcast();
+
+  /// How many times the app asked to restart recording.
+  int recoverCalls = 0;
+
+  /// What [recoverRecording] does: null = nothing was paused.
+  bool? recoverResult;
+
+  void setFast(FastModeStatus status) {
+    fast = status;
+    _fastController.add(status);
+  }
+
+  @override
+  Stream<FastModeStatus> get fastMode async* {
+    yield fast;
+    yield* _fastController.stream;
+  }
+
+  @override
+  Future<void> setFastMode(bool enabled) async => setFast(
+    FastModeStatus(enabled: enabled, phase: fast.phase, message: fast.message),
+  );
+
+  @override
+  Future<bool> recoverRecording() async {
+    recoverCalls++;
+    final result = recoverResult;
+    if (result == null) return false;
+    if (!result) throw StateError('Recording is still OFF.');
+    setFast(FastModeStatus(enabled: fast.enabled));
+    return true;
+  }
 }

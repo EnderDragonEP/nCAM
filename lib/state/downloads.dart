@@ -23,6 +23,37 @@ final localFilesProvider = FutureProvider<Map<String, int>>((ref) {
   return ref.watch(downloaderProvider).localFiles();
 });
 
+final fastModeProvider = StreamProvider<FastModeStatus>(
+  (ref) => ref.watch(downloaderProvider).fastMode,
+);
+
+/// Keeps recording safe around fast download. Watch it once near the root of the app.
+///
+/// - Every time the camera link comes up, asks the platform side to restart recording if
+///   the app had left it paused (app closed or camera out of range mid-download).
+/// - When recording has been restarted, re-reads the camera status so the UI shows it.
+final recordingGuardProvider = Provider<void>((ref) {
+  ref.listen(sessionProvider.select((s) => s.connected && s.status != null), (
+    was,
+    ready,
+  ) async {
+    if (!ready || was == true) return;
+    try {
+      final acted = await ref.read(downloaderProvider).recoverRecording();
+      if (acted) await ref.read(sessionProvider.notifier).refreshWhenIdle();
+    } catch (_) {
+      // The failure is reported through fastModeProvider (phase: failed).
+    }
+  }, fireImmediately: true);
+
+  ref.listen(fastModeProvider.select((f) => f.value?.phase), (was, now) {
+    final changedRecording =
+        (was == FastPhase.resuming && now == FastPhase.idle) ||
+        (was == FastPhase.pausing && now == FastPhase.paused);
+    if (changedRecording) ref.read(sessionProvider.notifier).refreshWhenIdle();
+  });
+});
+
 /// The camera's files grouped into recordings, newest first.
 final recordingsProvider = Provider<List<Recording>>((ref) {
   final files = ref.watch(sessionProvider.select((s) => s.files));

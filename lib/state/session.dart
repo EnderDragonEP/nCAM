@@ -249,6 +249,14 @@ class SessionController extends Notifier<SessionState> {
     }
   }
 
+  /// Like [refresh], but waits for a query already in progress to finish first.
+  Future<void> refreshWhenIdle() async {
+    for (var i = 0; i < 100 && ref.mounted && state.busy; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+    }
+    if (ref.mounted) await refresh();
+  }
+
   /// Manual "Sync time".
   Future<void> syncTime() async {
     if (!state.connected || state.busy) return;

@@ -5,6 +5,7 @@ import '../camera/models.dart';
 import '../camera/transport.dart';
 import '../state/downloads.dart';
 import '../state/session.dart';
+import 'fast_mode.dart';
 import 'format.dart';
 import 'recordings_screen.dart';
 
@@ -13,6 +14,7 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(recordingGuardProvider);
     final s = ref.watch(sessionProvider);
     final controller = ref.read(sessionProvider.notifier);
 
@@ -40,6 +42,7 @@ class HomeScreen extends ConsumerWidget {
               padding: const EdgeInsets.all(16),
               children: [
                 _LinkCard(state: s),
+                const RecordingPausedBanner(margin: EdgeInsets.only(top: 12)),
                 if (s.error != null) ...[
                   const SizedBox(height: 12),
                   _ErrorCard(message: s.error!),

@@ -100,18 +100,37 @@ class DownloadService : Service() {
 
     private fun runQueue() {
         try {
+            var resumeTried = false
             while (true) {
-                val job = synchronized(this) {
-                    Downloads.nextQueued() ?: run {
-                        // Decided under the lock: an enqueue arriving after this point sees
-                        // no worker and starts a new one (possibly in a new service instance).
-                        worker = null
-                        releaseLocks()
-                        stopForeground(STOP_FOREGROUND_REMOVE)
-                        stopSelf()
-                        null
+                var job = Downloads.nextQueued()
+                if (job == null) {
+                    if (!resumeTried && FastMode.pausedByApp(this)) {
+                        // Queue finished (or cancelled): recording goes back on before the
+                        // service is allowed to stop.
+                        resumeTried = true
+                        showText("Restarting recording…")
+                        FastMode.resume(this)
+                        continue
                     }
-                } ?: break
+                    job = synchronized(this) {
+                        Downloads.nextQueued() ?: run {
+                            // Decided under the lock: an enqueue arriving after this point
+                            // sees no worker and starts a new one.
+                            worker = null
+                            releaseLocks()
+                            stopForeground(STOP_FOREGROUND_REMOVE)
+                            stopSelf()
+                            null
+                        }
+                    } ?: break
+                }
+                resumeTried = false
+                if (FastMode.isEnabled(this)) {
+                    FastMode.pause(this)
+                } else if (FastMode.pausedByApp(this)) {
+                    // Fast download was switched off while the queue was running.
+                    FastMode.resume(this)
+                }
                 currentJob = job
                 Downloads.changed()
                 try {
@@ -308,6 +327,17 @@ class DownloadService : Service() {
         getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, buildNotification(job))
     }
 
+    private fun showText(text: String) {
+        val n = Notification.Builder(this, CHANNEL)
+            .setSmallIcon(android.R.drawable.stat_sys_download)
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setContentTitle(text)
+            .setProgress(0, 0, true)
+            .build()
+        getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, n)
+    }
+
     private fun buildNotification(job: Downloads.Job?): Notification {
         val open = PendingIntent.getActivity(
             this, 0, Intent(this, MainActivity::class.java),
@@ -323,7 +353,10 @@ class DownloadService : Service() {
         } else {
             val position = Downloads.doneCount() + 1
             builder.setContentTitle("Downloading $position of ${Downloads.totalCount()}")
-                .setContentText(job.name)
+                .setContentText(
+                    if (FastMode.phase == FastMode.PAUSED) "${job.name} · recording paused"
+                    else job.name
+                )
             if (job.total > 0) {
                 builder.setProgress(1000, (job.received * 1000 / job.total).toInt(), false)
             } else {

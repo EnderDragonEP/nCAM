@@ -6,6 +6,7 @@ import '../camera/recordings.dart';
 import '../downloads/downloader.dart';
 import '../state/downloads.dart';
 import '../state/session.dart';
+import 'fast_mode.dart';
 import 'format.dart';
 
 enum LensFilter { both, front, rear }
@@ -65,6 +66,7 @@ class _RecordingsScreenState extends ConsumerState<RecordingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(recordingGuardProvider);
     final session = ref.watch(sessionProvider);
     final recordings = ref
         .watch(recordingsProvider)
@@ -180,6 +182,10 @@ class _RecordingsScreenState extends ConsumerState<RecordingsScreen> {
                 showSelectedIcon: false,
                 onSelectionChanged: (s) => setState(() => _filter = s.first),
               ),
+            ),
+            const FastModeSwitch(),
+            const RecordingPausedBanner(
+              margin: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             ),
             Expanded(
               child: items.isEmpty

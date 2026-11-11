@@ -21,6 +21,12 @@ class DownloadBridge(private val activity: Activity, messenger: BinaryMessenger)
     private val methods = MethodChannel(messenger, "ncam/downloads")
     private val events = EventChannel(messenger, "ncam/downloads/jobs")
     private var sink: EventChannel.EventSink? = null
+    private val fastEvents = EventChannel(messenger, "ncam/downloads/fast")
+    private var fastSink: EventChannel.EventSink? = null
+    private val fastListener: () -> Unit = {
+        val snapshot = FastMode.snapshot(activity)
+        main.post { fastSink?.success(snapshot) }
+    }
     private val listener: () -> Unit = {
         val snapshot = Downloads.snapshot()
         main.post { sink?.success(snapshot) }
@@ -29,12 +35,26 @@ class DownloadBridge(private val activity: Activity, messenger: BinaryMessenger)
     init {
         methods.setMethodCallHandler(this)
         events.setStreamHandler(this)
+        fastEvents.setStreamHandler(object : EventChannel.StreamHandler {
+            override fun onListen(arguments: Any?, eventSink: EventChannel.EventSink) {
+                fastSink = eventSink
+                FastMode.addListener(fastListener)
+                eventSink.success(FastMode.snapshot(activity))
+            }
+
+            override fun onCancel(arguments: Any?) {
+                FastMode.removeListener(fastListener)
+                fastSink = null
+            }
+        })
     }
 
     fun dispose() {
         methods.setMethodCallHandler(null)
         events.setStreamHandler(null)
+        fastEvents.setStreamHandler(null)
         Downloads.removeListener(listener)
+        FastMode.removeListener(fastListener)
         io.shutdown()
     }
 
@@ -82,6 +102,32 @@ class DownloadBridge(private val activity: Activity, messenger: BinaryMessenger)
             }
 
             "snapshot" -> result.success(Downloads.snapshot())
+
+            "fastSnapshot" -> result.success(FastMode.snapshot(activity))
+
+            "setFastMode" -> {
+                FastMode.setEnabled(activity, call.argument<Boolean>("enabled") ?: false)
+                result.success(null)
+            }
+
+            // Restarts recording if this app left it paused (app killed, or camera out of
+            // range, before the queue finished). True when it had to act and succeeded.
+            "recoverRecording" -> {
+                val app = activity.applicationContext
+                if (!FastMode.pausedByApp(app) || Downloads.activeCount() > 0) {
+                    // Nothing to do, or the download service is in charge of it.
+                    result.success(false)
+                } else {
+                    // Own thread: this can take two minutes when the camera is unreachable.
+                    Thread {
+                        val ok = FastMode.resume(app)
+                        main.post {
+                            if (ok) result.success(true)
+                            else result.error("resume_failed", FastMode.message, null)
+                        }
+                    }.start()
+                }
+            }
 
             "localFiles" -> io.execute {
                 try {

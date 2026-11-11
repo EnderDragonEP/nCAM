@@ -54,6 +54,41 @@ class PlatformDownloader implements Downloader {
   @override
   Future<void> clearFinished() => _methods.invokeMethod<void>('clearFinished');
 
+  static const _fastEvents = EventChannel('ncam/downloads/fast');
+
+  late final Stream<FastModeStatus> _fast = _fastEvents
+      .receiveBroadcastStream()
+      .map(_parseFast)
+      .asBroadcastStream();
+
+  static FastModeStatus _parseFast(Object? event) {
+    final m = (event as Map?) ?? const {};
+    return FastModeStatus(
+      enabled: m['enabled'] as bool? ?? false,
+      phase: FastPhase.values.asNameMap()[m['phase']] ?? FastPhase.idle,
+      message: m['message'] as String?,
+    );
+  }
+
+  @override
+  Stream<FastModeStatus> get fastMode async* {
+    yield _parseFast(await _methods.invokeMethod<Object?>('fastSnapshot'));
+    yield* _fast;
+  }
+
+  @override
+  Future<void> setFastMode(bool enabled) =>
+      _methods.invokeMethod<void>('setFastMode', {'enabled': enabled});
+
+  @override
+  Future<bool> recoverRecording() async {
+    try {
+      return await _methods.invokeMethod<bool>('recoverRecording') ?? false;
+    } on PlatformException catch (e) {
+      throw StateError(e.message ?? 'Recording could not be restarted.');
+    }
+  }
+
   @override
   Future<Map<String, int>> localFiles() async {
     final map = await _methods.invokeMapMethod<String, Object?>('localFiles');

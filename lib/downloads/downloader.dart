@@ -44,6 +44,33 @@ class DownloadRequest {
   final int total;
 }
 
+/// Where the opt-in "fast download" stands. It pauses recording for about twice the speed.
+enum FastPhase {
+  /// Recording is not being held off by the app.
+  idle,
+  pausing,
+
+  /// Recording is OFF because the app paused it.
+  paused,
+  resuming,
+
+  /// The app could not restart recording. Recording is OFF.
+  failed,
+}
+
+class FastModeStatus {
+  const FastModeStatus({
+    this.enabled = false,
+    this.phase = FastPhase.idle,
+    this.message,
+  });
+
+  /// The user's switch.
+  final bool enabled;
+  final FastPhase phase;
+  final String? message;
+}
+
 /// The download queue. Files are fetched one at a time, resumed after interruptions, and
 /// saved to the phone's gallery. The real implementation is an Android foreground service.
 abstract class Downloader {
@@ -64,4 +91,15 @@ abstract class Downloader {
 
   /// Files already saved to the gallery by this app: name -> size in bytes.
   Future<Map<String, int>> localFiles();
+
+  /// Emits the fast-download status on listen and on every change.
+  Stream<FastModeStatus> get fastMode;
+
+  /// Turns fast download on or off. Takes effect from the next file.
+  Future<void> setFastMode(bool enabled);
+
+  /// Restarts recording if the app left it paused, for example because the app was closed
+  /// or the camera went out of range mid-download. Returns true if it had to act. Throws
+  /// if recording could not be restarted.
+  Future<bool> recoverRecording();
 }
