@@ -1,6 +1,6 @@
 # nCAM — build plan
 
-Status: **approved 2026-11-11.** Steps 0–6 are built and confirmed on the phone and camera. Step 7 (thumbnails, delete) is built and waiting for a test on the phone; step 8 (playing downloaded clips) is next.
+Status: **approved 2026-11-11.** All nine steps are built. Steps 0–7 are confirmed on the phone and camera; steps 8 (player, saved clips) and 9 (settings) are waiting for a test on the phone.
 
 ## What the tests decided
 

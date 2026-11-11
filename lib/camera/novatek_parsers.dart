@@ -65,6 +65,32 @@ Map<int, String> parseCurrentValues(String body) {
   return values;
 }
 
+/// Reply to command 3031 (`str=all`): the settings the camera supports and their choices.
+/// [values] are the current values from command 3014.
+List<CameraSetting> parseSettings(String body, Map<int, String> values) {
+  final doc = _parse(body);
+  final settings = <CameraSetting>[];
+  for (final item in doc.findAllElements('Item')) {
+    final cmd = int.tryParse(_childText(item, 'Cmd') ?? '');
+    if (cmd == null) continue;
+    final options = <SettingOption>[];
+    for (final o in item.findAllElements('Option')) {
+      final index = int.tryParse(_childText(o, 'Index') ?? '');
+      if (index == null) continue;
+      options.add(SettingOption(index, _childText(o, 'Id') ?? '$index'));
+    }
+    settings.add(
+      CameraSetting(
+        cmd: cmd,
+        name: _childText(item, 'Name') ?? '$cmd',
+        options: options,
+        value: int.tryParse(values[cmd] ?? ''),
+      ),
+    );
+  }
+  return settings;
+}
+
 /// Reply to command 2019. Returns the movie-mode live view URL, or null if absent.
 String? parseLiveViewLink(String body) {
   final link = _parse(body)

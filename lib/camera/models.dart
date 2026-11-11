@@ -75,6 +75,57 @@ class CameraStatus {
   bool get isRecording => recordingSeconds > 0;
 }
 
+class SettingOption {
+  const SettingOption(this.index, this.label);
+
+  /// The value the camera expects for this choice.
+  final int index;
+
+  /// The camera's own label, e.g. `ON`, `3MIN`, `1920x1080P30_1920x1080P30`.
+  final String label;
+}
+
+/// A setting the camera says it supports, with its choices and current value.
+class CameraSetting {
+  const CameraSetting({
+    required this.cmd,
+    required this.name,
+    required this.options,
+    this.value,
+  });
+
+  /// Command id used to change it.
+  final int cmd;
+
+  /// The camera's own name, e.g. `MOVIE_AUDIO`.
+  final String name;
+  final List<SettingOption> options;
+
+  /// Index of the current choice, or null if the camera did not report one.
+  final int? value;
+
+  /// With a single choice there is nothing to change.
+  bool get changeable => options.length > 1;
+
+  SettingOption? get current {
+    for (final o in options) {
+      if (o.index == value) return o;
+    }
+    return null;
+  }
+}
+
+class CameraSettings {
+  const CameraSettings({required this.listed, required this.other});
+
+  /// Settings the camera lists with choices (command 3031).
+  final List<CameraSetting> listed;
+
+  /// Values the camera reports (command 3014) without listing any choices for them,
+  /// by command id. Shown read-only: nothing says what else they could be set to.
+  final Map<int, String> other;
+}
+
 class CameraProtocolException implements Exception {
   const CameraProtocolException(this.message);
   final String message;

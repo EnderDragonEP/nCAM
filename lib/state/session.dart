@@ -28,6 +28,11 @@ final cameraRetryDelayProvider = Provider<Duration>(
   (ref) => const Duration(seconds: 1),
 );
 
+/// How long the camera needs to bring its Wi-Fi back up under a new name.
+final wifiRestartDelayProvider = Provider<Duration>(
+  (ref) => const Duration(seconds: 10),
+);
+
 /// Gap between the two file listings used to spot the clip being recorded.
 final clockProbeDelayProvider = Provider<Duration>(
   (ref) => const Duration(milliseconds: 1500),
@@ -283,6 +288,26 @@ class SessionController extends Notifier<SessionState> {
     }
     if (ref.mounted) await refreshWhenIdle();
     return (deleted: deleted, error: error);
+  }
+
+  /// Gives the camera's Wi-Fi a new name and password, then rejoins it under them.
+  /// Returns an error message, or null when the app is connected again.
+  Future<String?> changeWifi(String ssid, String password) async {
+    try {
+      await _api.setWifi(ssid, password);
+    } catch (e) {
+      return 'The camera did not accept the new Wi-Fi settings: $e';
+    }
+    // Saved before reconnecting: from here on the old credentials are useless.
+    final creds = CameraCredentials(ssid, password);
+    await ref.read(credentialStoreProvider).save(creds);
+    if (!ref.mounted) return null;
+    state = state.copyWith(saved: creds);
+    await disconnect();
+    await Future<void>.delayed(ref.read(wifiRestartDelayProvider));
+    if (!ref.mounted) return null;
+    await connect(ssid, password);
+    return ref.mounted ? state.error : null;
   }
 
   /// Manual "Sync time".

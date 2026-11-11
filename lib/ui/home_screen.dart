@@ -10,6 +10,7 @@ import 'format.dart';
 import 'live_screen.dart';
 import 'recordings_screen.dart';
 import 'saved_screen.dart';
+import 'settings_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -24,6 +25,14 @@ class HomeScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('nCAM'),
         actions: [
+          if (s.connected && s.status != null)
+            IconButton(
+              tooltip: 'Camera settings',
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
+              ),
+              icon: const Icon(Icons.settings_outlined),
+            ),
           if (s.connected)
             IconButton(
               tooltip: 'Refresh',

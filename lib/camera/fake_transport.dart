@@ -72,6 +72,29 @@ class FakeCameraTransport implements CameraTransport {
     return null;
   }
 
+  /// Current values by command id, as command 3014 reports them.
+  final Map<int, int> settingValues = {
+    2003: 3,
+    2007: 1,
+    2011: 1,
+    3007: 0,
+    1002: 0,
+    2002: 0,
+    2005: 0,
+  };
+
+  /// Status the camera returns when a setting is changed.
+  int setSettingStatus = 0;
+
+  /// When true, changing a setting stops recording (as some firmware does).
+  bool settingStopsRecording = false;
+
+  String? wifiSsid;
+  String? wifiPassword;
+  bool wifiApplied = false;
+  bool formatted = false;
+  bool factoryReset = false;
+
   /// Status the camera returns for a delete.
   int deleteStatus = 0;
 
@@ -159,8 +182,35 @@ class FakeCameraTransport implements CameraTransport {
       case 3014:
         body =
             '<?xml version="1.0" encoding="UTF-8" ?>\n<Function>\n'
-            '<Cmd>2007</Cmd>\n<Status>1</Status>\n'
+            '${[for (final e in settingValues.entries) '<Cmd>${e.key}</Cmd>\n<Status>${e.value}</Status>\n'].join()}'
             '<Cmd>3028</Cmd>\n<Status>$viewIndex</Status>\n</Function>';
+      case 3031:
+        body = sampleSettingOptions;
+      case 2007 || 3007:
+        if (setSettingStatus == 0) {
+          settingValues[cmd!] = int.parse(q['par']!);
+          if (settingStopsRecording) _setRecording(false);
+        }
+        body = _function(cmd!, status: setSettingStatus);
+      case 2001:
+        _setRecording(q['par'] == '1');
+        body = _function(2001);
+      case 3010:
+        formatted = true;
+        files.clear();
+        body = _function(3010);
+      case 3011:
+        factoryReset = true;
+        body = _function(3011);
+      case 3003:
+        wifiSsid = q['str'];
+        body = _function(3003);
+      case 3004:
+        wifiPassword = q['str'];
+        body = _function(3004);
+      case 3021:
+        wifiApplied = true;
+        body = _function(3021);
       case 3028:
         viewIndex = int.parse(q['par']!);
         body = _function(3028);
@@ -190,6 +240,88 @@ class FakeCameraTransport implements CameraTransport {
   static String _function(int cmd, {int status = 0, String extra = ''}) =>
       '<?xml version="1.0" encoding="UTF-8" ?>\n<Function>\n<Cmd>$cmd</Cmd>\n'
       '<Status>$status</Status>\n${extra.isEmpty ? '' : '$extra\n'}</Function>';
+
+  void _setRecording(bool on) {
+    recordingSeconds = on ? 3 : 0;
+    if (!on) {
+      for (final f in files) {
+        f.recording = false;
+      }
+    }
+  }
+
+  /// The real camera's reply to command 3031.
+  static const sampleSettingOptions = '''<?xml version="1.0" encoding="UTF-8" ?>
+<LIST>
+<Item>
+<Cmd>1002</Cmd>
+<Name>PHOTO_SIZE</Name>
+<MenuList>
+<Option>
+<Index>0</Index>
+<Id>2MHD</Id>
+</Option>
+</MenuList>
+</Item>
+<Item>
+<Cmd>2002</Cmd>
+<Name>MOVIE_SIZE</Name>
+<MenuList>
+<Option>
+<Index>0</Index>
+<Id>1920x1080P30_1920x1080P30</Id>
+</Option>
+</MenuList>
+</Item>
+<Item>
+<Cmd>2005</Cmd>
+<Name>EV</Name>
+<MenuList>
+<Option>
+<Index>0</Index>
+<Id>0.0</Id>
+</Option>
+</MenuList>
+</Item>
+<Item>
+<Cmd>2007</Cmd>
+<Name>MOVIE_AUDIO</Name>
+<MenuList>
+<Option>
+<Index>0</Index>
+<Id>OFF</Id>
+</Option>
+<Option>
+<Index>1</Index>
+<Id>ON</Id>
+</Option>
+</MenuList>
+</Item>
+<Item>
+<Cmd>3007</Cmd>
+<Name>AUTO_POWER_OFF</Name>
+<MenuList>
+<Option>
+<Index>0</Index>
+<Id>ON</Id>
+</Option>
+<Option>
+<Index>1</Index>
+<Id>3MIN</Id>
+</Option>
+<Option>
+<Index>2</Index>
+<Id>5MIN</Id>
+</Option>
+<Option>
+<Index>3</Index>
+<Id>10MIN</Id>
+</Option>
+</MenuList>
+</Item>
+<CHK>B424</CHK>
+</LIST>
+''';
 
   static String _stamp(DateTime t) {
     String two(int n) => n.toString().padLeft(2, '0');

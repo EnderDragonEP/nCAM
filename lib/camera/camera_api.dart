@@ -31,6 +31,24 @@ abstract class CameraApi {
 
   /// Deletes a file from the camera's card. Cannot be undone.
   Future<void> deleteFile(CameraFile file);
+
+  Future<CameraSettings> readSettings();
+
+  /// Sets [cmd] to the choice with the given [index]. Throws if the camera refuses.
+  Future<void> setSetting(int cmd, int index);
+
+  /// Starts or stops recording.
+  Future<void> setRecording(bool on);
+
+  /// Erases the SD card. Cannot be undone.
+  Future<void> formatCard();
+
+  /// Restores the camera's factory settings.
+  Future<void> factoryReset();
+
+  /// Changes the camera's Wi-Fi name and password. The camera restarts its Wi-Fi, so the
+  /// current link drops.
+  Future<void> setWifi(String ssid, String password);
 }
 
 /// Novatek HTTP protocol, as documented in docs/camera-protocol.md.
@@ -46,6 +64,13 @@ class NovatekCameraApi implements CameraApi {
   static const cmdCurrentValues = 3014;
   static const cmdViewIndex = 3028;
   static const cmdDeleteFile = 4003;
+  static const cmdRecord = 2001;
+  static const cmdSetSsid = 3003;
+  static const cmdSetPassword = 3004;
+  static const cmdFormat = 3010;
+  static const cmdFactoryReset = 3011;
+  static const cmdApplyWifi = 3021;
+  static const cmdSettingOptions = 3031;
 
   /// Used when the camera does not answer 2019. Measured on the real camera.
   static const defaultLiveViewUrl = 'http://192.168.1.254:8192';
@@ -63,22 +88,42 @@ class NovatekCameraApi implements CameraApi {
     return b.toString();
   }
 
-  Future<String> _body(int cmd, {int? par, String? str}) async {
-    final reply = await _transport.get(commandUrl(cmd, par: par, str: str));
+  Future<String> _body(
+    int cmd, {
+    int? par,
+    String? str,
+    Duration timeout = const Duration(seconds: 10),
+  }) async {
+    final reply = await _transport.get(
+      commandUrl(cmd, par: par, str: str),
+      timeout: timeout,
+    );
     // The camera answers 200 even for unknown URLs, so the body decides.
     return reply.text;
   }
 
-  Future<NovatekReply> command(int cmd, {int? par, String? str}) async {
-    final reply = parseReply(await _body(cmd, par: par, str: str));
+  Future<NovatekReply> command(
+    int cmd, {
+    int? par,
+    String? str,
+    Duration timeout = const Duration(seconds: 10),
+  }) async {
+    final reply = parseReply(
+      await _body(cmd, par: par, str: str, timeout: timeout),
+    );
     if (reply.cmd != cmd) {
       throw CameraProtocolException('asked for $cmd, got ${reply.cmd}');
     }
     return reply;
   }
 
-  Future<NovatekReply> _ok(int cmd, {int? par, String? str}) async {
-    final reply = await command(cmd, par: par, str: str);
+  Future<NovatekReply> _ok(
+    int cmd, {
+    int? par,
+    String? str,
+    Duration timeout = const Duration(seconds: 10),
+  }) async {
+    final reply = await command(cmd, par: par, str: str, timeout: timeout);
     if (!reply.ok) {
       throw CameraProtocolException(
         'command $cmd failed with status ${reply.status}',
@@ -130,6 +175,49 @@ class NovatekCameraApi implements CameraApi {
 
   @override
   Future<void> setViewIndex(int index) => _ok(cmdViewIndex, par: index);
+
+  @override
+  Future<CameraSettings> readSettings() async {
+    final values = parseCurrentValues(await _body(cmdCurrentValues));
+    final listed = parseSettings(
+      await _body(cmdSettingOptions, str: 'all'),
+      values,
+    );
+    final listedIds = {for (final s in listed) s.cmd};
+    return CameraSettings(
+      listed: listed,
+      other: {
+        for (final e in values.entries)
+          if (!listedIds.contains(e.key)) e.key: e.value,
+      },
+    );
+  }
+
+  @override
+  Future<void> setSetting(int cmd, int index) => _ok(cmd, par: index);
+
+  @override
+  Future<void> setRecording(bool on) => _ok(cmdRecord, par: on ? 1 : 0);
+
+  @override
+  Future<void> formatCard() =>
+      _ok(cmdFormat, par: 1, timeout: const Duration(seconds: 90));
+
+  @override
+  Future<void> factoryReset() =>
+      _ok(cmdFactoryReset, par: 1, timeout: const Duration(seconds: 30));
+
+  @override
+  Future<void> setWifi(String ssid, String password) async {
+    // Same three commands, in the same order, as the vendor app.
+    await _ok(cmdSetSsid, str: ssid);
+    await _ok(cmdSetPassword, str: password);
+    try {
+      await _ok(cmdApplyWifi, timeout: const Duration(seconds: 15));
+    } on TransportException {
+      // The camera may restart its Wi-Fi before it answers this one.
+    }
+  }
 
   @override
   Future<void> deleteFile(CameraFile file) =>
