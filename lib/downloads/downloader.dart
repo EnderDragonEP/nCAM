@@ -92,6 +92,12 @@ abstract class Downloader {
   /// Files already saved to the gallery by this app: name -> size in bytes.
   Future<Map<String, int>> localFiles();
 
+  /// Address of the phone's copy of [name] for the video player, or null if there is none.
+  Future<String?> localUri(String name);
+
+  /// Deletes the phone's copy of [name]. The file on the camera is not touched.
+  Future<bool> deleteLocal(String name);
+
   /// Emits the fast-download status on listen and on every change.
   Stream<FastModeStatus> get fastMode;
 

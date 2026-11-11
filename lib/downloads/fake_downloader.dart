@@ -97,6 +97,18 @@ class FakeDownloader implements Downloader {
   @override
   Future<Map<String, int>> localFiles() async => Map.of(local);
 
+  @override
+  Future<String?> localUri(String name) async =>
+      local.containsKey(name) ? 'content://media/fake/$name' : null;
+
+  @override
+  Future<bool> deleteLocal(String name) async {
+    final had = local.remove(name) != null;
+    _jobs.removeWhere((j) => j.name == name && !j.active);
+    _emit();
+    return had;
+  }
+
   FastModeStatus fast = const FastModeStatus();
   final _fastController = StreamController<FastModeStatus>.broadcast();
 

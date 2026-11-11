@@ -5,10 +5,12 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.net.Uri
 import android.net.wifi.WifiManager
 import android.os.Environment
 import android.os.IBinder
@@ -395,6 +397,34 @@ class DownloadService : Service() {
                 }
             }
             return result
+        }
+
+        /** The gallery entry this app saved under [name], or null. */
+        fun localUri(context: Context, name: String): Uri? {
+            val collections = listOf(
+                MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY) to
+                    Environment.DIRECTORY_MOVIES + "/nCAM/",
+                MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY) to
+                    Environment.DIRECTORY_DOWNLOADS + "/nCAM/",
+            )
+            for ((collection, folder) in collections) {
+                context.contentResolver.query(
+                    collection,
+                    arrayOf(MediaStore.MediaColumns._ID),
+                    "${MediaStore.MediaColumns.DISPLAY_NAME}=? AND ${MediaStore.MediaColumns.RELATIVE_PATH}=?",
+                    arrayOf(name, folder),
+                    null,
+                )?.use { c ->
+                    if (c.moveToFirst()) return ContentUris.withAppendedId(collection, c.getLong(0))
+                }
+            }
+            return null
+        }
+
+        /** Removes the phone's copy of [name]. The file on the camera is not touched. */
+        fun deleteLocal(context: Context, name: String): Boolean {
+            val uri = localUri(context, name) ?: return false
+            return context.contentResolver.delete(uri, null, null) > 0
         }
     }
 }

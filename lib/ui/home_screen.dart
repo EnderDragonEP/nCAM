@@ -9,6 +9,7 @@ import 'fast_mode.dart';
 import 'format.dart';
 import 'live_screen.dart';
 import 'recordings_screen.dart';
+import 'saved_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -52,6 +53,8 @@ class HomeScreen extends ConsumerWidget {
                   const SizedBox(height: 12),
                   _ConnectCard(state: s),
                 ],
+                const SizedBox(height: 12),
+                const _SavedCard(),
                 if (s.connected && s.status != null) ...[
                   const SizedBox(height: 12),
                   _StatusCard(status: s.status!),
@@ -81,6 +84,32 @@ class HomeScreen extends ConsumerWidget {
                 ],
               ],
             ),
+    );
+  }
+}
+
+class _SavedCard extends ConsumerWidget {
+  const _SavedCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final count = ref.watch(localFilesProvider).value?.length ?? 0;
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: ListTile(
+        leading: const Icon(Icons.smartphone),
+        title: const Text('Saved on this phone'),
+        subtitle: Text(
+          count == 0
+              ? 'No clips yet'
+              : count == 1
+              ? '1 clip, playable without the camera'
+              : '$count clips, playable without the camera',
+        ),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => Navigator.of(context)
+            .push(MaterialPageRoute<void>(builder: (_) => const SavedScreen())),
+      ),
     );
   }
 }

@@ -9,6 +9,7 @@ import '../state/session.dart';
 import 'clip_thumbnail.dart';
 import 'fast_mode.dart';
 import 'format.dart';
+import 'player_screen.dart';
 
 enum LensFilter { both, front, rear }
 
@@ -323,11 +324,18 @@ class _RecordingsScreenState extends ConsumerState<RecordingsScreen> {
         final job = v.job;
         if (job != null) downloader.cancel(job.id);
       case FileStatus.saved:
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${v.file.name} is in your gallery (Movies/nCAM).'),
-          ),
-        );
+        final recording = ref
+            .read(recordingsProvider)
+            .where((r) => r.files.any((f) => f.name == v.file.name))
+            .firstOrNull;
+        if (recording != null) {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) =>
+                  PlayerScreen(recording: recording, lens: v.file.lens),
+            ),
+          );
+        }
       case FileStatus.writing:
         break;
     }
@@ -552,7 +560,7 @@ class _FileChip extends StatelessWidget {
       FileStatus.saved => (
         Icon(Icons.check_circle, size: 18, color: scheme.primary),
         '$lens · saved',
-        'In your gallery',
+        'Play',
       ),
     };
     return Tooltip(

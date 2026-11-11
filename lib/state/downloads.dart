@@ -23,6 +23,16 @@ final localFilesProvider = FutureProvider<Map<String, int>>((ref) {
   return ref.watch(downloaderProvider).localFiles();
 });
 
+/// Clips saved on this phone, grouped into recordings, newest first. Works without the
+/// camera.
+final savedRecordingsProvider = Provider<List<Recording>>((ref) {
+  final local = ref.watch(localFilesProvider).value ?? const {};
+  return groupRecordings([
+    for (final e in local.entries)
+      CameraFile(name: e.key, path: e.key, size: e.value, writeTime: null),
+  ]);
+});
+
 final fastModeProvider = StreamProvider<FastModeStatus>(
   (ref) => ref.watch(downloaderProvider).fastMode,
 );

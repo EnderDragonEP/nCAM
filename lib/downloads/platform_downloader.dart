@@ -90,6 +90,14 @@ class PlatformDownloader implements Downloader {
   }
 
   @override
+  Future<String?> localUri(String name) =>
+      _methods.invokeMethod<String>('localUri', {'name': name});
+
+  @override
+  Future<bool> deleteLocal(String name) async =>
+      await _methods.invokeMethod<bool>('deleteLocal', {'name': name}) ?? false;
+
+  @override
   Future<Map<String, int>> localFiles() async {
     final map = await _methods.invokeMapMethod<String, Object?>('localFiles');
     return {

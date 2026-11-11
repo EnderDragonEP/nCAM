@@ -102,6 +102,12 @@ object Downloads {
         changed()
     }
 
+    /** Drops finished entries for [name], e.g. after the phone's copy was deleted. */
+    fun forget(name: String) {
+        synchronized(lock) { jobs.values.removeAll { it.name == name && !it.active } }
+        changed()
+    }
+
     fun nextQueued(): Job? = synchronized(lock) {
         jobs.values.firstOrNull { it.state == QUEUED }?.also { it.state = RUNNING }
     }

@@ -129,6 +129,27 @@ class DownloadBridge(private val activity: Activity, messenger: BinaryMessenger)
                 }
             }
 
+            "localUri" -> io.execute {
+                val name = call.argument<String>("name").orEmpty()
+                try {
+                    val uri = DownloadService.localUri(activity.applicationContext, name)
+                    main.post { result.success(uri?.toString()) }
+                } catch (e: Exception) {
+                    main.post { result.error("io", e.message, null) }
+                }
+            }
+
+            "deleteLocal" -> io.execute {
+                val name = call.argument<String>("name").orEmpty()
+                try {
+                    val ok = DownloadService.deleteLocal(activity.applicationContext, name)
+                    Downloads.forget(name)
+                    main.post { result.success(ok) }
+                } catch (e: Exception) {
+                    main.post { result.error("io", e.message, null) }
+                }
+            }
+
             "localFiles" -> io.execute {
                 try {
                     val files = DownloadService.localFiles(activity.applicationContext)

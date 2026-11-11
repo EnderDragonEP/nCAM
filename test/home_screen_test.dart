@@ -13,6 +13,10 @@ void main() {
     tester,
   ) async {
     final fake = FakeCameraTransport();
+    // Tall screen so every card on the home screen is built.
+    tester.view.physicalSize = const Size(1080, 6000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -38,7 +42,7 @@ void main() {
     expect(find.text('DVR52AFHW3_YL_V3.19_TS'), findsOneWidget);
     expect(find.textContaining('Clock synced at'), findsOneWidget);
     expect(find.text('Live view'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('3 recordings'), 200);
+    expect(find.text('Saved on this phone'), findsOneWidget);
     expect(find.text('3 recordings'), findsOneWidget);
     expect(fake.timeSet, isNotNull);
   });

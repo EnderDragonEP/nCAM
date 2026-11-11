@@ -28,6 +28,16 @@ object Thumbnails {
         val out = File(dir, "$safe.jpg")
         if (out.length() > 0) return out.path
 
+        // 0. A copy already on the phone: no camera needed.
+        DownloadService.localUri(context, key)?.let { uri ->
+            val frame = firstFrame { it.setDataSource(context, uri) }
+            if (frame != null) {
+                out.outputStream().use { frame.compress(Bitmap.CompressFormat.JPEG, 80, it) }
+                frame.recycle()
+                return out.path
+            }
+        }
+
         // 1. The camera's own thumbnail: tiny and instant when it works.
         val own = CameraLink.get("$url?custom=1&cmd=4001", emptyMap(), 8_000, 2 * 1024 * 1024)
         if (isJpeg(own.body)) {
@@ -44,7 +54,7 @@ object Thumbnails {
             val tmp = File(dir, "$safe.head" + lower.substring(lower.lastIndexOf('.')))
             try {
                 tmp.writeBytes(head.body)
-                val frame = firstFrame(tmp)
+                val frame = firstFrame { it.setDataSource(tmp.path) }
                 if (frame != null) {
                     out.outputStream().use { frame.compress(Bitmap.CompressFormat.JPEG, 80, it) }
                     frame.recycle()
@@ -61,10 +71,10 @@ object Thumbnails {
     private fun isJpeg(b: ByteArray) =
         b.size > 3 && b[0] == 0xFF.toByte() && b[1] == 0xD8.toByte()
 
-    private fun firstFrame(file: File): Bitmap? {
+    private fun firstFrame(open: (MediaMetadataRetriever) -> Unit): Bitmap? {
         val retriever = MediaMetadataRetriever()
         return try {
-            retriever.setDataSource(file.path)
+            open(retriever)
             retriever.getScaledFrameAtTime(
                 0, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, WIDTH, HEIGHT,
             )
