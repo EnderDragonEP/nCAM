@@ -1,0 +1,23 @@
+prompt.md
+.apk/
+# Flutter / Dart
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+build/
+.flutter-plugins-dependencies
+*.iml
+.idea/
+
+# Android
+android/.gradle/
+android/local.properties
+android/app/.cxx/
+android/key.properties
+*.jks
+*.keystore
+
+# Test logs
+camtest-*.log
+__pycache__/
