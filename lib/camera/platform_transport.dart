@@ -87,6 +87,15 @@ class PlatformCameraTransport implements CameraTransport {
       );
 
   @override
+  Future<String?> thumbnail(String fileUrl, {required String cacheKey}) =>
+      _guard(
+        () => _methods.invokeMethod<String>('thumbnail', {
+          'url': fileUrl,
+          'key': cacheKey,
+        }),
+      );
+
+  @override
   Future<void> keepScreenOn(bool on) =>
       _guard(() => _methods.invokeMethod<void>('keepScreenOn', {'on': on}));
 

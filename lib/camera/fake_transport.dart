@@ -60,6 +60,21 @@ class FakeCameraTransport implements CameraTransport {
   @override
   Future<void> keepScreenOn(bool on) async => screenKeptOn = on;
 
+  /// Clip URLs the app asked a preview picture for.
+  final List<String> thumbnailRequests = [];
+
+  @override
+  Future<String?> thumbnail(String fileUrl, {required String cacheKey}) async {
+    if (_state != LinkState.connected) {
+      throw const TransportException('io', 'not connected to the camera');
+    }
+    thumbnailRequests.add(fileUrl);
+    return null;
+  }
+
+  /// Status the camera returns for a delete.
+  int deleteStatus = 0;
+
   /// Every URL requested, in order.
   final List<String> requests = [];
 
@@ -149,6 +164,11 @@ class FakeCameraTransport implements CameraTransport {
       case 3028:
         viewIndex = int.parse(q['par']!);
         body = _function(3028);
+      case 4003:
+        // str is the camera's own path form: A:\Novatek\Movie\name
+        final name = (q['str'] ?? '').split(r'\').last;
+        if (deleteStatus == 0) files.removeWhere((f) => f.name == name);
+        body = _function(4003, status: deleteStatus);
       case 3015:
         for (final f in files.where((f) => f.recording)) {
           f.size += 2 * 1024 * 1024;

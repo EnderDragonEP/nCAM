@@ -21,6 +21,9 @@ class CameraBridge(private val activity: Activity, messenger: BinaryMessenger) :
 
     private val main = Handler(Looper.getMainLooper())
     private val io = Executors.newFixedThreadPool(4)
+
+    // One thumbnail at a time, so previews never crowd out a download on the slow link.
+    private val thumbs = Executors.newSingleThreadExecutor()
     private val methods = MethodChannel(messenger, "ncam/camera")
     private val events = EventChannel(messenger, "ncam/camera/state")
     private var sink: EventChannel.EventSink? = null
@@ -86,6 +89,7 @@ class CameraBridge(private val activity: Activity, messenger: BinaryMessenger) :
         events.setStreamHandler(null)
         CameraLink.removeListener(listener)
         io.shutdown()
+        thumbs.shutdown()
     }
 
     override fun onListen(arguments: Any?, eventSink: EventChannel.EventSink) {
@@ -140,6 +144,21 @@ class CameraBridge(private val activity: Activity, messenger: BinaryMessenger) :
             }
 
             "scan" -> scan(result)
+
+            "thumbnail" -> {
+                val url = call.argument<String>("url").orEmpty()
+                val key = call.argument<String>("key").orEmpty()
+                val app = activity.applicationContext
+                thumbs.execute {
+                    try {
+                        val path = Thumbnails.get(app, url, key)
+                        main.post { result.success(path) }
+                    } catch (e: Exception) {
+                        val msg = "${e.javaClass.simpleName}: ${e.message}"
+                        main.post { result.error("io", msg, null) }
+                    }
+                }
+            }
 
             "keepScreenOn" -> {
                 val flag = WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON

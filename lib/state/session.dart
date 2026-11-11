@@ -257,6 +257,34 @@ class SessionController extends Notifier<SessionState> {
     if (ref.mounted) await refresh();
   }
 
+  /// Deletes [files] from the camera, one after another, skipping clips that are still
+  /// being written. Returns how many were deleted and the first error, if any.
+  Future<({int deleted, String? error})> deleteFiles(
+    List<CameraFile> files,
+  ) async {
+    var deleted = 0;
+    String? error;
+    for (final f in files) {
+      if (state.writing.contains(f.path)) continue;
+      try {
+        await _api.deleteFile(f);
+        deleted++;
+        if (!ref.mounted) break;
+        state = state.copyWith(
+          files: [
+            for (final x in state.files ?? const <CameraFile>[])
+              if (x.path != f.path) x,
+          ],
+        );
+      } catch (e) {
+        error = '$e';
+        break;
+      }
+    }
+    if (ref.mounted) await refreshWhenIdle();
+    return (deleted: deleted, error: error);
+  }
+
   /// Manual "Sync time".
   Future<void> syncTime() async {
     if (!state.connected || state.busy) return;

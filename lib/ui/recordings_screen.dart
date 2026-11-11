@@ -6,6 +6,7 @@ import '../camera/recordings.dart';
 import '../downloads/downloader.dart';
 import '../state/downloads.dart';
 import '../state/session.dart';
+import 'clip_thumbnail.dart';
 import 'fast_mode.dart';
 import 'format.dart';
 
@@ -64,6 +65,81 @@ class _RecordingsScreenState extends ConsumerState<RecordingsScreen> {
     }
   }
 
+  /// Asks, then deletes the visible files of [recordings] from the camera. Returns false
+  /// if the user backed out.
+  Future<bool> _delete(List<Recording> recordings) async {
+    final resolver = ref.read(fileStatusProvider);
+    final files = [
+      for (final r in recordings)
+        if (!r.beingWritten) ..._visibleFiles(r),
+    ];
+    if (files.isEmpty) return false;
+    final busy = files.where((f) {
+      final s = resolver.view(f).status;
+      return s == FileStatus.queued ||
+          s == FileStatus.running ||
+          s == FileStatus.waiting;
+    }).length;
+    final unsaved = files
+        .where((f) => resolver.view(f).status != FileStatus.saved)
+        .length;
+    final messenger = ScaffoldMessenger.of(context);
+    if (busy > 0) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Some of these are downloading. Cancel the download or wait for it first.',
+          ),
+        ),
+      );
+      return false;
+    }
+    final what = files.length == 1 ? '1 file' : '${files.length} files';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Delete $what from the camera?'),
+        content: Text(
+          [
+            'This cannot be undone.',
+            if (unsaved == 0)
+              'All of them are saved on this phone; those copies are kept.'
+            else if (unsaved == files.length)
+              'None of them has been saved to this phone.'
+            else
+              '$unsaved of them have not been saved to this phone.',
+          ].join('\n\n'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return false;
+    final result = await ref.read(sessionProvider.notifier).deleteFiles(files);
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          result.error == null
+              ? 'Deleted ${result.deleted == 1 ? '1 file' : '${result.deleted} files'} from the camera.'
+              : 'Deleted ${result.deleted} of ${files.length}. The camera refused the next one: ${result.error}',
+        ),
+      ),
+    );
+    return true;
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.watch(recordingGuardProvider);
@@ -97,6 +173,7 @@ class _RecordingsScreenState extends ConsumerState<RecordingsScreen> {
                   _selected.add(r.id);
                 }),
           onFile: _onFile,
+          onDelete: () => _delete([r]),
         ),
       );
     }
@@ -125,6 +202,19 @@ class _RecordingsScreenState extends ConsumerState<RecordingsScreen> {
                       ]);
                     }),
                     icon: const Icon(Icons.select_all),
+                  ),
+                  IconButton(
+                    tooltip: 'Delete selected from camera',
+                    onPressed: () {
+                      final chosen = [
+                        for (final r in recordings)
+                          if (_selected.contains(r.id)) r,
+                      ];
+                      _delete(chosen).then((done) {
+                        if (done && mounted) _stopSelecting();
+                      });
+                    },
+                    icon: const Icon(Icons.delete_outline),
                   ),
                   IconButton(
                     tooltip: 'Download selected',
@@ -272,8 +362,10 @@ class _RecordingTile extends StatelessWidget {
     required this.onTap,
     required this.onLongPress,
     required this.onFile,
+    required this.onDelete,
   });
 
+  final VoidCallback onDelete;
   final Recording recording;
   final List<FileView> views;
   final bool selecting;
@@ -303,30 +395,69 @@ class _RecordingTile extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.only(top: 2, right: 16),
-              child: selecting
-                  ? Icon(
-                      r.beingWritten
-                          ? Icons.block
-                          : selected
-                          ? Icons.check_circle
-                          : Icons.radio_button_unchecked,
-                      color: r.beingWritten
-                          ? theme.colorScheme.outline
-                          : theme.colorScheme.primary,
-                    )
-                  : Icon(
-                      r.beingWritten
-                          ? Icons.fiber_manual_record
-                          : Icons.movie_outlined,
-                      color: r.beingWritten ? Colors.red : null,
+              padding: const EdgeInsets.only(top: 2, right: 12),
+              child: Stack(
+                children: [
+                  ClipThumbnail(
+                    key: ValueKey(views.first.file.name),
+                    file: views.first.file,
+                  ),
+                  if (selecting || r.beingWritten)
+                    Positioned(
+                      left: 4,
+                      top: 4,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surface,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          !selecting
+                              ? Icons.fiber_manual_record
+                              : r.beingWritten
+                              ? Icons.block
+                              : selected
+                              ? Icons.check_circle
+                              : Icons.radio_button_unchecked,
+                          size: 20,
+                          color: !selecting
+                              ? Colors.red
+                              : r.beingWritten
+                              ? theme.colorScheme.outline
+                              : theme.colorScheme.primary,
+                        ),
+                      ),
                     ),
+                ],
+              ),
             ),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: theme.textTheme.titleMedium),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(title, style: theme.textTheme.titleMedium),
+                      ),
+                      if (!selecting && !r.beingWritten)
+                        SizedBox(
+                          height: 28,
+                          child: PopupMenuButton<String>(
+                            tooltip: 'More',
+                            padding: EdgeInsets.zero,
+                            iconSize: 20,
+                            onSelected: (_) => onDelete(),
+                            itemBuilder: (context) => const [
+                              PopupMenuItem(
+                                value: 'delete',
+                                child: Text('Delete from camera'),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
                   if (r.beingWritten)
                     Text(
                       'Recording now. Available when this clip is finished.',

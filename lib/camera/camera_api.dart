@@ -28,6 +28,9 @@ abstract class CameraApi {
   Future<int?> viewIndex();
 
   Future<void> setViewIndex(int index);
+
+  /// Deletes a file from the camera's card. Cannot be undone.
+  Future<void> deleteFile(CameraFile file);
 }
 
 /// Novatek HTTP protocol, as documented in docs/camera-protocol.md.
@@ -42,6 +45,7 @@ class NovatekCameraApi implements CameraApi {
   static const cmdLiveViewLinks = 2019;
   static const cmdCurrentValues = 3014;
   static const cmdViewIndex = 3028;
+  static const cmdDeleteFile = 4003;
 
   /// Used when the camera does not answer 2019. Measured on the real camera.
   static const defaultLiveViewUrl = 'http://192.168.1.254:8192';
@@ -126,6 +130,10 @@ class NovatekCameraApi implements CameraApi {
 
   @override
   Future<void> setViewIndex(int index) => _ok(cmdViewIndex, par: index);
+
+  @override
+  Future<void> deleteFile(CameraFile file) =>
+      _ok(cmdDeleteFile, str: urlPathToFpath(file.path));
 
   @override
   Future<void> setTime(DateTime time) async {

@@ -1,6 +1,6 @@
 # nCAM — build plan
 
-Status: **approved 2026-11-11.** Steps 0–5 are built and confirmed on the phone and camera. Step 6 (live preview) is built and waiting for a test on the phone; step 7 (thumbnails, delete) is next.
+Status: **approved 2026-11-11.** Steps 0–6 are built and confirmed on the phone and camera. Step 7 (thumbnails, delete) is built and waiting for a test on the phone; step 8 (playing downloaded clips) is next.
 
 ## What the tests decided
 

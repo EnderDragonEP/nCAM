@@ -63,6 +63,11 @@ abstract class CameraTransport {
   /// sending. Frames the listener is too slow for are dropped.
   Stream<Uint8List> liveFrames(String url);
 
+  /// Makes (or finds in the cache) a small preview picture for the clip at [fileUrl] and
+  /// returns its path on the phone, or null if the clip yields no picture. Throws
+  /// [TransportException] when the camera cannot be reached.
+  Future<String?> thumbnail(String fileUrl, {required String cacheKey});
+
   /// Keeps the phone's screen from turning off (for the live view).
   Future<void> keepScreenOn(bool on);
 }
