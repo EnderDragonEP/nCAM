@@ -284,7 +284,9 @@ class _RecordingsScreenState extends ConsumerState<RecordingsScreen> {
                       child: Padding(
                         padding: const EdgeInsets.all(32),
                         child: Text(
-                          session.connected
+                          session.filesError != null
+                              ? session.filesError!
+                              : session.connected
                               ? (session.busy
                                     ? 'Reading the card…'
                                     : 'No recordings on the card.')

@@ -86,7 +86,16 @@ class HomeScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 12),
                   _TimeCard(state: s),
-                  if (s.files != null) ...[
+                  if (s.filesError != null) ...[
+                    const SizedBox(height: 12),
+                    Card(
+                      child: ListTile(
+                        leading: const Icon(Icons.info_outline),
+                        title: const Text('No file list'),
+                        subtitle: Text(s.filesError!),
+                      ),
+                    ),
+                  ] else if (s.files != null) ...[
                     const SizedBox(height: 12),
                     _FilesCard(files: s.files!),
                   ],

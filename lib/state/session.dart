@@ -63,6 +63,7 @@ class SessionState {
     this.error,
     this.status,
     this.files,
+    this.filesError,
     this.writing = const {},
     this.timeSync,
   });
@@ -77,6 +78,10 @@ class SessionState {
   final String? error;
   final CameraStatus? status;
   final List<CameraFile>? files;
+
+  /// Why [files] is empty although the camera is connected: it would not give a list.
+  /// The rest of the app keeps working.
+  final String? filesError;
 
   /// Paths of the clips the camera is writing right now. They are still growing, so they
   /// are not offered for download.
@@ -95,6 +100,7 @@ class SessionState {
     Object? error = _keep,
     Object? status = _keep,
     Object? files = _keep,
+    Object? filesError = _keep,
     Set<String>? writing,
     Object? timeSync = _keep,
   }) => SessionState(
@@ -105,6 +111,7 @@ class SessionState {
     error: error == _keep ? this.error : error as String?,
     status: status == _keep ? this.status : status as CameraStatus?,
     files: files == _keep ? this.files : files as List<CameraFile>?,
+    filesError: filesError == _keep ? this.filesError : filesError as String?,
     writing: writing ?? this.writing,
     timeSync: timeSync == _keep ? this.timeSync : timeSync as TimeSync?,
   );
@@ -179,6 +186,7 @@ class SessionController extends Notifier<SessionState> {
         busy: false,
         status: null,
         files: null,
+        filesError: null,
         writing: const {},
       );
     }
@@ -217,9 +225,10 @@ class SessionController extends Notifier<SessionState> {
         );
         return;
       }
-      final files = await _api.listFiles();
+      state = state.copyWith(status: status);
+      final files = await _listFiles();
       if (stale()) return;
-      state = state.copyWith(status: status, files: files);
+      state = state.copyWith(files: files);
       await _sync(status: status, before: files, stale: stale);
     } catch (e) {
       if (stale()) return;
@@ -236,9 +245,10 @@ class SessionController extends Notifier<SessionState> {
     state = state.copyWith(busy: true, error: null);
     try {
       final status = await _api.status();
-      final files = await _api.listFiles();
+      state = state.copyWith(status: status);
+      final files = await _listFiles();
       if (!ref.mounted || gen != _generation) return;
-      state = state.copyWith(status: status, files: files);
+      state = state.copyWith(files: files);
       await _probeWriting(
         status: status,
         before: files,
@@ -318,9 +328,10 @@ class SessionController extends Notifier<SessionState> {
     state = state.copyWith(busy: true, error: null);
     try {
       final status = await _api.status();
-      final files = await _api.listFiles();
+      state = state.copyWith(status: status);
+      final files = await _listFiles();
       if (stale()) return;
-      state = state.copyWith(status: status, files: files);
+      state = state.copyWith(files: files);
       await _sync(status: status, before: files, stale: stale);
     } catch (e) {
       if (stale()) return;
@@ -366,6 +377,29 @@ class SessionController extends Notifier<SessionState> {
     }
   }
 
+  /// The camera's files. A camera that will not give a list (it does that instead of
+  /// sending an empty one) yields no files and a note, not a failed connection: status,
+  /// clock sync, live view and settings do not depend on the list.
+  Future<List<CameraFile>> _listFiles() async {
+    try {
+      final files = await _api.listFiles();
+      if (ref.mounted && state.filesError != null) {
+        state = state.copyWith(filesError: null);
+      }
+      return files;
+    } on FileListUnavailable catch (e) {
+      if (ref.mounted) {
+        state = state.copyWith(
+          filesError:
+              'The camera did not send a file list (${e.message}). '
+              'It may have no recordings yet, for example right after the card '
+              'was formatted or replaced.',
+        );
+      }
+      return const [];
+    }
+  }
+
   /// Lists the files a second time to find the clips that are still growing. Returns the
   /// second listing, or null when the camera is not recording.
   Future<List<CameraFile>?> _probeWriting({
@@ -379,7 +413,7 @@ class SessionController extends Notifier<SessionState> {
     }
     await Future<void>.delayed(ref.read(clockProbeDelayProvider));
     if (stale()) return null;
-    final after = await _api.listFiles();
+    final after = await _listFiles();
     if (stale()) return null;
     state = state.copyWith(
       files: after,

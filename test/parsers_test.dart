@@ -55,6 +55,37 @@ void main() {
     expect(files.firstWhere((f) => f.name.endsWith('046B.TS')).lens, Lens.rear);
   });
 
+  test('a status reply instead of a file list is reported with its status', () {
+    expect(
+      () => parseFileList(
+        '<?xml version="1.0" encoding="UTF-8" ?>\n<Function>\n<Cmd>3015</Cmd>\n'
+        '<Status>-256</Status>\n</Function>',
+      ),
+      throwsA(
+        isA<FileListUnavailable>().having((e) => e.status, 'status', -256),
+      ),
+    );
+    expect(
+      () => parseFileList('<html><body>Page Not found</body></html>'),
+      throwsA(
+        isA<FileListUnavailable>().having(
+          (e) => e.message,
+          'message',
+          contains('Page Not found'),
+        ),
+      ),
+    );
+  });
+
+  test('an empty list is just empty', () {
+    expect(
+      parseFileList(
+        '<?xml version="1.0" encoding="UTF-8" ?>\n<LIST>\n</LIST>\n',
+      ),
+      isEmpty,
+    );
+  });
+
   test('a file with an unexpected name still lists', () {
     final f = CameraFile(
       name: 'CardStatus.txt',

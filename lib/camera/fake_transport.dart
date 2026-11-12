@@ -95,6 +95,10 @@ class FakeCameraTransport implements CameraTransport {
   bool formatted = false;
   bool factoryReset = false;
 
+  /// When set, the camera answers the file list request with this status instead of a
+  /// list (seen on the real camera).
+  int? fileListStatus;
+
   /// Status the camera returns for a delete.
   int deleteStatus = 0;
 
@@ -219,6 +223,8 @@ class FakeCameraTransport implements CameraTransport {
         final name = (q['str'] ?? '').split(r'\').last;
         if (deleteStatus == 0) files.removeWhere((f) => f.name == name);
         body = _function(4003, status: deleteStatus);
+      case 3015 when fileListStatus != null:
+        body = _function(3015, status: fileListStatus!);
       case 3015:
         for (final f in files.where((f) => f.recording)) {
           f.size += 2 * 1024 * 1024;

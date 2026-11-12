@@ -126,6 +126,14 @@ class CameraSettings {
   final Map<int, String> other;
 }
 
+/// The camera answered the "list files" command with something other than a list.
+class FileListUnavailable extends CameraProtocolException {
+  const FileListUnavailable(super.message, {this.status});
+
+  /// The camera's status code, when it answered with one.
+  final int? status;
+}
+
 class CameraProtocolException implements Exception {
   const CameraProtocolException(this.message);
   final String message;

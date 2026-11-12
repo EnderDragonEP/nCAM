@@ -1,5 +1,7 @@
-prompt.md
+.vscode/
 .apk/
+prompt.md
+
 # Flutter / Dart
 .dart_tool/
 .packages

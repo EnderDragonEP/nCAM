@@ -148,6 +148,30 @@ void main() {
     expect(syncs(), 2);
   });
 
+  test('a camera that will not list files still connects and syncs', () async {
+    // Seen on the real camera: a status reply instead of a file list.
+    final fake = FakeCameraTransport()..fileListStatus = -256;
+    final c = makeContainer(fake);
+    await settle(c);
+    await c.read(sessionProvider.notifier).connect('NoodleCam', 'secret');
+    final s = await settle(c);
+
+    expect(s.link, LinkState.connected);
+    expect(s.error, isNull);
+    expect(s.status!.firmware, 'DVR52AFHW3_YL_V3.19_TS');
+    expect(s.files, isEmpty);
+    expect(s.filesError, contains('status -256'));
+    expect(s.timeSync!.ok, isTrue);
+    expect(fake.timeSet, '19:57:54');
+
+    // Once the camera has files again the note goes away.
+    fake.fileListStatus = null;
+    await c.read(sessionProvider.notifier).refresh();
+    final later = await settle(c);
+    expect(later.filesError, isNull);
+    expect(later.files, hasLength(6));
+  });
+
   test('manual sync sends the time again', () async {
     final fake = FakeCameraTransport();
     final c = makeContainer(fake);

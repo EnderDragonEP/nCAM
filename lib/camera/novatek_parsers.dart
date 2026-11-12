@@ -123,8 +123,22 @@ DateTime? parseCameraTime(String? s) {
 /// Reply to command 3015: `<LIST><ALLFile><File>…</File></ALLFile>…</LIST>`.
 List<CameraFile> parseFileList(String body) {
   final doc = _parse(body);
-  if (doc.rootElement.name.local != 'LIST') {
-    throw const CameraProtocolException('file list has no <LIST> root');
+  final root = doc.rootElement;
+  if (root.name.local != 'LIST') {
+    // Instead of an empty list the camera can answer like a plain command:
+    // <Function><Cmd>3015</Cmd><Status>n</Status></Function>.
+    final status = int.tryParse(_childText(root, 'Status') ?? '');
+    if (root.name.local == 'Function' && status != null) {
+      throw FileListUnavailable(
+        'the camera answered the file list request with status $status',
+        status: status,
+      );
+    }
+    final start = body.trim().replaceAll(RegExp(r'\s+'), ' ');
+    throw FileListUnavailable(
+      'unexpected reply to the file list request: '
+      '${start.length > 120 ? '${start.substring(0, 120)}...' : start}',
+    );
   }
   final files = <CameraFile>[];
   for (final f in doc.findAllElements('File')) {
