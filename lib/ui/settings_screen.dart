@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../camera/models.dart';
 import '../state/session.dart';
 import '../state/settings.dart';
+import 'appearance_tiles.dart';
 import 'format.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -141,8 +142,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final settings = ref.watch(settingsProvider);
     final status = ref.watch(sessionProvider.select((s) => s.status));
+    final connected = ref.watch(
+      sessionProvider.select((s) => s.connected && s.status != null),
+    );
+    // Only read from the camera while connected.
+    final settings = connected ? ref.watch(settingsProvider) : null;
     final theme = Theme.of(context);
     final busy = _working != null;
 
@@ -161,10 +166,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         leading: widget.onBack == null
             ? null
             : BackButton(onPressed: widget.onBack),
-        title: const Text('Camera settings'),
+        title: const Text('Settings'),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(4),
-          child: busy || settings.isLoading
+          child: busy || (settings?.isLoading ?? false)
               ? const LinearProgressIndicator()
               : const SizedBox(height: 4),
         ),
@@ -188,86 +193,102 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 'If a change makes it stop, the app starts recording again.',
               ),
             ),
-          header('Camera'),
-          ...settings.when(
-            loading: () => const [ListTile(title: Text('Reading settings…'))],
-            error: (e, _) => [
-              ListTile(
-                leading: Icon(
-                  Icons.error_outline,
-                  color: theme.colorScheme.error,
-                ),
-                title: const Text('Could not read the settings'),
-                subtitle: Text('$e'),
-                trailing: TextButton(
-                  onPressed: () => ref.invalidate(settingsProvider),
-                  child: const Text('Retry'),
-                ),
+          header('App'),
+          const AppearanceTiles(),
+          if (!connected) ...[
+            header('Camera'),
+            const ListTile(
+              leading: Icon(Icons.wifi_off),
+              title: Text('Not connected'),
+              subtitle: Text(
+                'Connect to the camera on the home page to change its settings.',
               ),
-            ],
-            data: (data) => [
-              for (final s in data.listed) _settingTile(s, busy),
-              if (data.other.isNotEmpty)
-                ExpansionTile(
-                  leading: const Icon(Icons.list_alt),
-                  title: const Text('Other values (read-only)'),
-                  subtitle: const Text(
-                    'Reported by the camera without any choices to pick from.',
+            ),
+          ] else ...[
+            header('Camera'),
+            ...settings!.when(
+              loading: () => const [ListTile(title: Text('Reading settings…'))],
+              error: (e, _) => [
+                ListTile(
+                  leading: Icon(
+                    Icons.error_outline,
+                    color: theme.colorScheme.error,
                   ),
-                  children: [
-                    for (final e
-                        in data.other.entries.toList()
-                          ..sort((a, b) => a.key.compareTo(b.key)))
-                      ListTile(
-                        dense: true,
-                        title: Text(
-                          otherValueTitles[e.key] ?? 'Setting ${e.key}',
-                        ),
-                        trailing: Text(e.value),
-                      ),
-                  ],
+                  title: const Text('Could not read the settings'),
+                  subtitle: Text('$e'),
+                  trailing: TextButton(
+                    onPressed: () => ref.invalidate(settingsProvider),
+                    child: const Text('Retry'),
+                  ),
                 ),
-            ],
-          ),
-          header('Wi-Fi'),
-          ListTile(
-            leading: const Icon(Icons.wifi_password),
-            title: const Text('Change Wi-Fi name and password'),
-            subtitle: const Text(
-              'The camera restarts its Wi-Fi and the app reconnects.',
+              ],
+              data: (data) => [
+                for (final s in data.listed) _settingTile(s, busy),
+                if (data.other.isNotEmpty)
+                  ExpansionTile(
+                    leading: const Icon(Icons.list_alt),
+                    title: const Text('Other values (read-only)'),
+                    subtitle: const Text(
+                      'Reported by the camera without any choices to pick from.',
+                    ),
+                    children: [
+                      for (final e
+                          in data.other.entries.toList()
+                            ..sort((a, b) => a.key.compareTo(b.key)))
+                        ListTile(
+                          dense: true,
+                          title: Text(
+                            otherValueTitles[e.key] ?? 'Setting ${e.key}',
+                          ),
+                          trailing: Text(e.value),
+                        ),
+                    ],
+                  ),
+              ],
             ),
-            enabled: !busy,
-            onTap: _wifi,
-          ),
-          header('Storage'),
-          if (status != null)
+            header('Wi-Fi'),
             ListTile(
-              leading: const Icon(Icons.sd_card_outlined),
-              title: Text(status.hasCard ? 'SD card' : 'No SD card'),
-              subtitle: status.hasCard
-                  ? Text('${formatBytes(status.freeBytes)} free')
-                  : null,
+              leading: const Icon(Icons.wifi_password),
+              title: const Text('Change Wi-Fi name and password'),
+              subtitle: const Text(
+                'The camera restarts its Wi-Fi and the app reconnects.',
+              ),
+              enabled: !busy,
+              onTap: _wifi,
             ),
-          ListTile(
-            leading: Icon(Icons.delete_forever, color: theme.colorScheme.error),
-            title: const Text('Format SD card'),
-            subtitle: const Text('Erases every recording on the camera.'),
-            enabled: !busy && (status?.hasCard ?? true),
-            onTap: _format,
-          ),
-          header('Device'),
-          if (status != null)
+            header('Storage'),
+            if (status != null)
+              ListTile(
+                leading: const Icon(Icons.sd_card_outlined),
+                title: Text(status.hasCard ? 'SD card' : 'No SD card'),
+                subtitle: status.hasCard
+                    ? Text('${formatBytes(status.freeBytes)} free')
+                    : null,
+              ),
             ListTile(
-              leading: const Icon(Icons.memory),
-              title: const Text('Firmware'),
-              subtitle: Text(status.firmware),
+              leading: Icon(
+                Icons.delete_forever,
+                color: theme.colorScheme.error,
+              ),
+              title: const Text('Format SD card'),
+              subtitle: const Text('Erases every recording on the camera.'),
+              enabled: !busy && (status?.hasCard ?? true),
+              onTap: _format,
             ),
-          ListTile(
-            leading: Icon(Icons.restart_alt, color: theme.colorScheme.error),
-            title: const Text('Restore factory settings'),
-            enabled: !busy,
-            onTap: _reset,
-          ),
+            header('Device'),
+            if (status != null)
+              ListTile(
+                leading: const Icon(Icons.memory),
+                title: const Text('Firmware'),
+                subtitle: Text(status.firmware),
+              ),
+            ListTile(
+              leading: Icon(Icons.restart_alt, color: theme.colorScheme.error),
+              title: const Text('Restore factory settings'),
+              enabled: !busy,
+              onTap: _reset,
+            ),
+          ],
           const SizedBox(height: 24),
         ],
       ),

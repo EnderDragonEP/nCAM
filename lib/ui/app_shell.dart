@@ -123,7 +123,7 @@ class Dock extends ConsumerWidget {
                 ShellTab.settings,
                 Icons.settings_outlined,
                 'Settings',
-                ready,
+                true, // app settings work without the camera
               ),
             ],
           ),

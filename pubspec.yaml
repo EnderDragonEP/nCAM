@@ -39,6 +39,7 @@ dependencies:
   flutter_secure_storage: ^11.2.0
   xml: ^7.1.0
   video_player: ^2.14.1
+  dynamic_color: 1.7.0
 
 dev_dependencies:
   flutter_test:

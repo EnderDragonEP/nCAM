@@ -199,6 +199,16 @@ These are the ones that decide whether the app can replace the official one.
 | L9 | Diagnostic log → download icon. | "Saved to Downloads as nCam-….log"; the file is in the phone's Downloads folder and opens in a text viewer. No permission prompt. | |
 | L10 | Turn on the largest font size; look at the dock and home page. | Nothing cut off or overlapping. | |
 
+## M. Appearance (added 2026-11-13)
+
+| ID | Do | Expect | Result |
+|---|---|---|---|
+| M1 | Fresh install, open the app. | Colours match your wallpaper (Material You). | |
+| M2 | Change the phone's wallpaper to one with different colours, reopen the app. | The app's colours follow. | |
+| M3 | Settings → Colours → each preset, then back to Wallpaper. | The whole app changes at once; the choice survives closing the app. | |
+| M4 | Settings → Appearance → Light, Dark, Pure black, Follow system. | Pure black has true black backgrounds with faintly lifted cards and dock; Follow system tracks the phone's dark mode. | |
+| M5 | Camera off: open Settings from the dock. | Colours and Appearance work; the camera part says "Not connected". | |
+
 ## K. Acceptance: the four original problems
 
 Fill this in last. Each line passes only if every listed test passed.

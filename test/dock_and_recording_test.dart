@@ -69,14 +69,14 @@ void main() {
 
       await tester.tap(find.text('Settings'));
       await tester.pumpAndSettle();
-      expect(find.text('Camera settings'), findsOneWidget);
+      expect(find.text('Colours'), findsOneWidget);
       // Tapping the open page again goes home.
-      await tester.tap(find.text('Settings'));
+      await tester.tap(find.text('Settings').last);
       await tester.pumpAndSettle();
       expect(find.text('Connected to NoodleCam'), findsOneWidget);
     });
 
-    testWidgets('Live and Settings wait for the camera; Saved does not', (
+    testWidgets('Live waits for the camera; Saved and Settings do not', (
       tester,
     ) async {
       camera.failConnect = true;
@@ -88,6 +88,13 @@ void main() {
       await tester.tap(find.text('Saved'));
       await tester.pumpAndSettle();
       expect(find.text('Saved on this phone'), findsOneWidget);
+
+      // App settings (colours) work without the camera.
+      await tester.tap(find.text('Settings'));
+      await tester.pumpAndSettle();
+      expect(find.text('Colours'), findsOneWidget);
+      expect(find.text('Not connected'), findsOneWidget);
+      expect(find.text('Format SD card'), findsNothing);
     });
   });
 
