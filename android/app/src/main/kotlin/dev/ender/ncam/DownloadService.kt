@@ -45,6 +45,7 @@ class DownloadService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        DiagLog.init(this)
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(
             NotificationChannel(CHANNEL, "Downloads", NotificationManager.IMPORTANCE_LOW)
@@ -135,12 +136,17 @@ class DownloadService : Service() {
                 }
                 currentJob = job
                 Downloads.changed()
+                DiagLog.add("download: start ${job.name}")
                 try {
                     runJob(job)
                 } catch (e: Exception) {
                     job.error = e.message ?: e.javaClass.simpleName
                     job.state = Downloads.FAILED
                 }
+                DiagLog.add(
+                    "download: ${job.state} ${job.name} ${job.received}/${job.total}" +
+                        (job.error?.let { " ($it)" } ?: "")
+                )
                 Thread.interrupted() // clear a late cancel signal before the next job
                 currentJob = null
                 job.bytesPerSecond = 0

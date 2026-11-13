@@ -411,6 +411,8 @@ class _RecordingTile extends StatelessWidget {
                   ClipThumbnail(
                     key: ValueKey(views.first.file.name),
                     file: views.first.file,
+                    // Nothing is requested for a clip the camera is still writing.
+                    enabled: !r.beingWritten,
                   ),
                   if (selecting || r.beingWritten)
                     Positioned(

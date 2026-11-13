@@ -160,6 +160,16 @@ class CameraBridge(private val activity: Activity, messenger: BinaryMessenger) :
                 }
             }
 
+            "diagnosticLog" -> io.execute {
+                val text = DiagLog.read()
+                main.post { result.success(text) }
+            }
+
+            "clearDiagnosticLog" -> {
+                DiagLog.clear()
+                result.success(null)
+            }
+
             "keepScreenOn" -> {
                 val flag = WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
                 if (call.argument<Boolean>("on") == true) activity.window.addFlags(flag)

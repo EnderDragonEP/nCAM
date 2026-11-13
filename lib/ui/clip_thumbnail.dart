@@ -8,8 +8,16 @@ import '../state/thumbnails.dart';
 
 /// Preview picture for a clip on the camera, loaded when the row first appears.
 class ClipThumbnail extends ConsumerStatefulWidget {
-  const ClipThumbnail({super.key, required this.file, this.width = 96});
+  const ClipThumbnail({
+    super.key,
+    required this.file,
+    this.width = 96,
+    this.enabled = true,
+  });
   final CameraFile file;
+
+  /// When false, only an already cached picture is shown; the camera is not asked.
+  final bool enabled;
   final double width;
 
   @override
@@ -31,7 +39,8 @@ class _ClipThumbnailState extends ConsumerState<ClipThumbnail> {
   @override
   void didUpdateWidget(ClipThumbnail old) {
     super.didUpdateWidget(old);
-    if (old.file.name != widget.file.name) {
+    if (old.file.name != widget.file.name ||
+        (widget.enabled && !old.enabled && _path == null)) {
       _loader.cancel(old.file);
       _path = null;
       _load();
@@ -41,7 +50,7 @@ class _ClipThumbnailState extends ConsumerState<ClipThumbnail> {
   void _load() {
     final file = widget.file;
     _path = _loader.cached(file);
-    if (_path != null) return;
+    if (_path != null || !widget.enabled) return;
     _loading = true;
     _loader.load(file).then((path) {
       if (!mounted || widget.file.name != file.name) return;

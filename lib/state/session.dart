@@ -320,6 +320,23 @@ class SessionController extends Notifier<SessionState> {
     return ref.mounted ? state.error : null;
   }
 
+  /// Tells the camera to start recording and checks that it did. Returns an error
+  /// message, or null when the camera is recording.
+  Future<String?> startRecording() async {
+    try {
+      await _api.setRecording(true);
+    } catch (e) {
+      return 'The camera refused to start recording: $e';
+    }
+    await Future<void>.delayed(ref.read(clockProbeDelayProvider));
+    if (!ref.mounted) return null;
+    await refreshWhenIdle();
+    if (!ref.mounted) return null;
+    return (state.status?.isRecording ?? false)
+        ? null
+        : 'The camera accepted the command but is still not recording.';
+  }
+
   /// Manual "Sync time".
   Future<void> syncTime() async {
     if (!state.connected || state.busy) return;
@@ -382,7 +399,10 @@ class SessionController extends Notifier<SessionState> {
   /// clock sync, live view and settings do not depend on the list.
   Future<List<CameraFile>> _listFiles() async {
     try {
-      final files = await _api.listFiles();
+      final files = [
+        for (final f in await _api.listFiles())
+          if (f.isMedia) f,
+      ];
       if (ref.mounted && state.filesError != null) {
         state = state.copyWith(filesError: null);
       }

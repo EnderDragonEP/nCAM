@@ -9,6 +9,8 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        DiagLog.init(this)
+        DiagLog.add("app: started")
         bridge = CameraBridge(this, flutterEngine.dartExecutor.binaryMessenger)
         downloads = DownloadBridge(this, flutterEngine.dartExecutor.binaryMessenger)
     }

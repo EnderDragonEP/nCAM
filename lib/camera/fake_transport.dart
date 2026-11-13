@@ -60,6 +60,12 @@ class FakeCameraTransport implements CameraTransport {
   @override
   Future<void> keepScreenOn(bool on) async => screenKeptOn = on;
 
+  @override
+  Future<String> diagnosticLog() async => requests.join('\n');
+
+  @override
+  Future<void> clearDiagnosticLog() async => requests.clear();
+
   /// Clip URLs the app asked a preview picture for.
   final List<String> thumbnailRequests = [];
 

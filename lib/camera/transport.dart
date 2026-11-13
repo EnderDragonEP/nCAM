@@ -68,6 +68,12 @@ abstract class CameraTransport {
   /// [TransportException] when the camera cannot be reached.
   Future<String?> thumbnail(String fileUrl, {required String cacheKey});
 
+  /// Everything the app has said to the camera recently, and the camera's answers, one
+  /// line each with a timestamp.
+  Future<String> diagnosticLog();
+
+  Future<void> clearDiagnosticLog();
+
   /// Keeps the phone's screen from turning off (for the live view).
   Future<void> keepScreenOn(bool on);
 }

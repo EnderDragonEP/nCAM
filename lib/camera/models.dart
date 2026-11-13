@@ -50,6 +50,15 @@ class CameraFile {
     return n.endsWith('.ts') || n.endsWith('.mp4') || n.endsWith('.mov');
   }
 
+  bool get isPhoto {
+    final n = name.toLowerCase();
+    return n.endsWith('.jpg') || n.endsWith('.jpeg');
+  }
+
+  /// Videos and photos. The camera also lists its own log files, which are not
+  /// recordings.
+  bool get isMedia => isVideo || isPhoto;
+
   /// Best guess at when the clip was recorded.
   DateTime? get time => startTime ?? writeTime;
 }

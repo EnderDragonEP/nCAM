@@ -49,6 +49,7 @@ object CameraLink {
     fun removeListener(l: (String) -> Unit) = listeners.remove(l)
 
     private fun setState(s: String) {
+        if (s != state) DiagLog.add("link: $s")
         state = s
         listeners.forEach { it(s) }
     }
@@ -149,6 +150,30 @@ object CameraLink {
      */
     @Throws(IOException::class)
     fun get(url: String, headers: Map<String, String>, timeoutMs: Int, maxBytes: Int): HttpReply {
+        val what = DiagLog.describe(url) + (headers["Range"]?.let { " [$it]" } ?: "")
+        try {
+            val reply = getUnlogged(url, headers, timeoutMs, maxBytes)
+            val type = reply.headers["content-type"].orEmpty()
+            val text = reply.body.size < 4096 &&
+                (type.startsWith("text/") || reply.body.firstOrNull() == '<'.code.toByte())
+            val detail =
+                if (text) String(reply.body).replace(Regex("\\s+"), " ").take(300)
+                else "${reply.body.size} bytes $type"
+            DiagLog.add("GET $what -> ${reply.status} $detail")
+            return reply
+        } catch (e: Exception) {
+            DiagLog.add("GET $what -> FAILED ${e.javaClass.simpleName}: ${e.message}")
+            throw e
+        }
+    }
+
+    @Throws(IOException::class)
+    private fun getUnlogged(
+        url: String,
+        headers: Map<String, String>,
+        timeoutMs: Int,
+        maxBytes: Int,
+    ): HttpReply {
         val n = network ?: throw IOException("not connected to the camera")
         val conn = n.openConnection(URL(url)) as HttpURLConnection
         try {

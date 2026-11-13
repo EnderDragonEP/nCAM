@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../camera/models.dart';
 import '../camera/transport.dart';
+import '../downloads/downloader.dart';
 import '../state/downloads.dart';
 import '../state/session.dart';
+import 'diagnostic_screen.dart';
 import 'fast_mode.dart';
 import 'format.dart';
 import 'live_screen.dart';
@@ -25,6 +27,13 @@ class HomeScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('nCAM'),
         actions: [
+          IconButton(
+            tooltip: 'Diagnostic log',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const DiagnosticScreen()),
+            ),
+            icon: const Icon(Icons.receipt_long_outlined),
+          ),
           if (s.connected && s.status != null)
             IconButton(
               tooltip: 'Camera settings',
@@ -392,30 +401,78 @@ class _ConnectCardState extends ConsumerState<_ConnectCard> {
   }
 }
 
-class _StatusCard extends StatelessWidget {
+class _StatusCard extends ConsumerStatefulWidget {
   const _StatusCard({required this.status});
   final CameraStatus status;
 
   @override
+  ConsumerState<_StatusCard> createState() => _StatusCardState();
+}
+
+class _StatusCardState extends ConsumerState<_StatusCard> {
+  bool _starting = false;
+
+  Future<void> _start() async {
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _starting = true);
+    final error = await ref.read(sessionProvider.notifier).startRecording();
+    if (mounted) setState(() => _starting = false);
+    messenger.showSnackBar(
+      SnackBar(content: Text(error ?? 'The camera is recording.')),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final status = widget.status;
     final scheme = Theme.of(context).colorScheme;
+    // Paused on purpose by fast download: that has its own banner and restart.
+    final pausedByApp =
+        (ref.watch(fastModeProvider).value?.phase ?? FastPhase.idle) !=
+        FastPhase.idle;
+    final warn = !status.isRecording && status.hasCard && !pausedByApp;
     return Card(
       child: Column(
         children: [
-          ListTile(
-            leading: Icon(
-              status.isRecording
-                  ? Icons.fiber_manual_record
-                  : Icons.stop_circle_outlined,
-              color: status.isRecording ? Colors.red : scheme.outline,
+          if (warn)
+            Container(
+              color: scheme.errorContainer,
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+              child: Row(
+                children: [
+                  Icon(Icons.warning_amber, color: scheme.onErrorContainer),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'The camera is NOT recording.',
+                      style: TextStyle(
+                        color: scheme.onErrorContainer,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  FilledButton(
+                    onPressed: _starting ? null : _start,
+                    child: Text(_starting ? 'Starting…' : 'Start recording'),
+                  ),
+                ],
+              ),
+            )
+          else
+            ListTile(
+              leading: Icon(
+                status.isRecording
+                    ? Icons.fiber_manual_record
+                    : Icons.stop_circle_outlined,
+                color: status.isRecording ? Colors.red : scheme.outline,
+              ),
+              title: Text(status.isRecording ? 'Recording' : 'Not recording'),
+              subtitle: status.isRecording
+                  ? Text(
+                      'Current clip: ${formatSpan(Duration(seconds: status.recordingSeconds))}',
+                    )
+                  : null,
             ),
-            title: Text(status.isRecording ? 'Recording' : 'Not recording'),
-            subtitle: status.isRecording
-                ? Text(
-                    'Current clip: ${formatSpan(Duration(seconds: status.recordingSeconds))}',
-                  )
-                : null,
-          ),
           ListTile(
             leading: Icon(
               Icons.sd_card_outlined,

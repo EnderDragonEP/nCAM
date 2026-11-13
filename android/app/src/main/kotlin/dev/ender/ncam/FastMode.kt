@@ -64,6 +64,7 @@ object FastMode {
     )
 
     private fun setPhase(p: String, msg: String? = null) {
+        if (p != phase) DiagLog.add("fast download: $p" + (msg?.let { " ($it)" } ?: ""))
         phase = p
         message = msg
         listeners.forEach { it() }

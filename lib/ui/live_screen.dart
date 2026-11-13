@@ -93,7 +93,16 @@ class LiveScreen extends ConsumerWidget {
                   child: SegmentedButton<int>(
                     segments: [
                       for (final i in {0, 1, 2, view}.toList()..sort())
-                        ButtonSegment(value: i, label: Text('View ${i + 1}')),
+                        ButtonSegment(
+                          value: i,
+                          // Checked on the real camera.
+                          label: Text(switch (i) {
+                            0 => 'Front',
+                            1 => 'Rear',
+                            2 => 'Both',
+                            _ => 'View ${i + 1}',
+                          }),
+                        ),
                     ],
                     selected: {view},
                     showSelectedIcon: false,
