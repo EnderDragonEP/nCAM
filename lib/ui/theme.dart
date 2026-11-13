@@ -2,25 +2,21 @@ import 'package:flutter/material.dart';
 
 import '../state/appearance.dart';
 
-/// Light and dark themes for an [Appearance]. [wallpaperLight] and [wallpaperDark] are
-/// the phone's wallpaper schemes when Android provides them.
+/// Light and dark themes for an [Appearance]. [wallpaperSeed] is the phone's wallpaper
+/// accent colour when Android provides one.
 ({ThemeData light, ThemeData dark, ThemeMode mode}) buildThemes(
   Appearance appearance, {
-  ColorScheme? wallpaperLight,
-  ColorScheme? wallpaperDark,
+  Color? wallpaperSeed,
 }) {
-  final useWallpaper =
-      appearance.color == ColorChoice.wallpaper &&
-      wallpaperLight != null &&
-      wallpaperDark != null;
-  final seed = appearance.color.seed;
+  final seed = appearance.color == ColorChoice.wallpaper
+      ? (wallpaperSeed ?? ColorChoice.wallpaper.seed)
+      : appearance.color.seed;
 
-  final lightScheme = useWallpaper
-      ? wallpaperLight
-      : ColorScheme.fromSeed(seedColor: seed);
-  var darkScheme = useWallpaper
-      ? wallpaperDark
-      : ColorScheme.fromSeed(seedColor: seed, brightness: Brightness.dark);
+  final lightScheme = ColorScheme.fromSeed(seedColor: seed);
+  var darkScheme = ColorScheme.fromSeed(
+    seedColor: seed,
+    brightness: Brightness.dark,
+  );
 
   final black = appearance.mode == AppearanceMode.black;
   if (black) darkScheme = pureBlack(darkScheme);

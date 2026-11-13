@@ -170,6 +170,15 @@ class CameraBridge(private val activity: Activity, messenger: BinaryMessenger) :
 
             "scan" -> scan(result)
 
+            // The wallpaper's accent colour (Material You), Android 12 and later.
+            "wallpaperColor" -> result.success(
+                if (Build.VERSION.SDK_INT >= 31) {
+                    activity.getColor(android.R.color.system_accent1_500)
+                } else {
+                    null
+                }
+            )
+
             "thumbnail" -> {
                 val url = call.argument<String>("url").orEmpty()
                 val key = call.argument<String>("key").orEmpty()

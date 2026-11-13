@@ -45,20 +45,21 @@ void main() {
   });
 
   group('buildThemes', () {
-    final wallpaperLight = ColorScheme.fromSeed(seedColor: Colors.pink);
-    final wallpaperDark = ColorScheme.fromSeed(
-      seedColor: Colors.pink,
-      brightness: Brightness.dark,
-    );
+    const wallpaper = Colors.pink;
 
-    test('uses the wallpaper scheme when Android provides one', () {
-      final t = buildThemes(
-        const Appearance(),
-        wallpaperLight: wallpaperLight,
-        wallpaperDark: wallpaperDark,
+    test('uses the wallpaper colour when Android provides one', () {
+      final t = buildThemes(const Appearance(), wallpaperSeed: wallpaper);
+      expect(
+        t.light.colorScheme.primary,
+        ColorScheme.fromSeed(seedColor: wallpaper).primary,
       );
-      expect(t.light.colorScheme.primary, wallpaperLight.primary);
-      expect(t.dark.colorScheme.primary, wallpaperDark.primary);
+      expect(
+        t.dark.colorScheme.primary,
+        ColorScheme.fromSeed(
+          seedColor: wallpaper,
+          brightness: Brightness.dark,
+        ).primary,
+      );
       expect(t.mode, ThemeMode.system);
     });
 
@@ -73,8 +74,7 @@ void main() {
     test('a preset ignores the wallpaper', () {
       final t = buildThemes(
         const Appearance(color: ColorChoice.orange),
-        wallpaperLight: wallpaperLight,
-        wallpaperDark: wallpaperDark,
+        wallpaperSeed: wallpaper,
       );
       expect(
         t.light.colorScheme.primary,

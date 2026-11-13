@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../state/session.dart';
+import '../state/wallpaper.dart';
 import 'home_screen.dart';
 import 'live_screen.dart';
 import 'record_button.dart';
@@ -40,7 +41,11 @@ class _AppShellState extends ConsumerState<AppShell> {
     super.initState();
     // Nothing is polled while the app is in the background.
     _lifecycle = AppLifecycleListener(
-      onResume: () => ref.read(sessionProvider.notifier).setForeground(true),
+      onResume: () {
+        ref.read(sessionProvider.notifier).setForeground(true);
+        // The wallpaper may have changed while the app was away.
+        ref.invalidate(wallpaperColorProvider);
+      },
       onHide: () => ref.read(sessionProvider.notifier).setForeground(false),
     );
   }
