@@ -9,6 +9,8 @@ Runs on a PC or in Termux; needs only Python 3. Join the camera's Wi-Fi first.
   python camtest.py time         set the camera clock to this device's clock
   python camtest.py mode --yes   T5: playback mode test (may stop recording)
   python camtest.py idle         T9: 5 minutes of silence, then one request
+  python camtest.py views        live view modes, switch speed, second stream
+                                 (saves pictures to camtest-views-<date>/)
 
 Everything is written to camtest-<date>.log next to where you run it.
 """
@@ -406,17 +408,203 @@ def step_idle(cam, secs):
     cam.rec_secs()
 
 
+class Mjpeg:
+    """Reads the camera's live view (MJPEG on :8192) in a background thread and keeps
+    every picture with the time it arrived."""
+
+    def __init__(self, cam, port=8192):
+        self.cam, self.port = cam, port
+        self.frames = []  # (time, bytes)
+        self.error = None
+        self.stopped = False
+        self.lock = threading.Lock()
+        self.thread = threading.Thread(target=self._run, daemon=True)
+
+    def start(self):
+        self.thread.start()
+        return self
+
+    def stop(self):
+        self.stopped = True
+        try:
+            self.sock.close()
+        except Exception:  # noqa: BLE001
+            pass
+        self.thread.join(3)
+
+    def _run(self):
+        try:
+            self.sock = socket.socket()
+            self.sock.settimeout(5)
+            if self.cam.bind:
+                self.sock.bind((self.cam.bind, 0))
+            self.sock.connect((self.cam.host, self.port))
+            self.sock.sendall(b"GET / HTTP/1.1\r\nHost: %s\r\nConnection: close\r\n\r\n"
+                              % self.cam.host.encode())
+            buf = b""
+            while not self.stopped:
+                chunk = self.sock.recv(65536)
+                if not chunk:
+                    self.error = "stream closed"
+                    break
+                buf += chunk
+                while True:
+                    a = buf.find(b"\xff\xd8")
+                    if a < 0:
+                        buf = buf[-1:]
+                        break
+                    b = buf.find(b"\xff\xd9", a + 2)
+                    if b < 0:
+                        buf = buf[a:]
+                        break
+                    with self.lock:
+                        self.frames.append((time.time(), buf[a:b + 2]))
+                    buf = buf[b + 2:]
+        except Exception as e:  # noqa: BLE001
+            if not self.stopped:
+                self.error = "%s: %s" % (type(e).__name__, e)
+
+    def count(self):
+        with self.lock:
+            return len(self.frames)
+
+    def at(self, t):
+        """The last picture that arrived at or before time t."""
+        with self.lock:
+            best = None
+            for ft, data in self.frames:
+                if ft <= t:
+                    best = (ft, data)
+                else:
+                    break
+            return best
+
+    def since(self, t):
+        with self.lock:
+            return [(ft, d) for ft, d in self.frames if ft >= t]
+
+
+def jpeg_size(data):
+    """(width, height) from a JPEG's SOF marker, or None."""
+    i = 2
+    while i + 9 < len(data):
+        if data[i] != 0xFF:
+            i += 1
+            continue
+        marker = data[i + 1]
+        if marker in (0xC0, 0xC1, 0xC2):
+            h = (data[i + 5] << 8) | data[i + 6]
+            w = (data[i + 7] << 8) | data[i + 8]
+            return w, h
+        length = (data[i + 2] << 8) | data[i + 3]
+        i += 2 + length
+    return None
+
+
+def step_views(cam):
+    cam.head("Live view modes (watch the camera's own screen too)")
+    folder = "camtest-views-%s" % datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    os.makedirs(folder, exist_ok=True)
+
+    def save(name, frame):
+        if frame:
+            with open(os.path.join(folder, name), "wb") as f:
+                f.write(frame[1])
+
+    cur = cam.cmd(3014, show=False)
+    m = re.search(r"<Cmd>3028</Cmd>\s*<Status>(\d+)</Status>", cur)
+    original = int(m.group(1)) if m else None
+    cam.out("  current view (3028): %s" % original)
+    cam.rec_secs()
+
+    live = Mjpeg(cam).start()
+    try:
+        time.sleep(3)
+        n = live.count()
+        cam.out("  stream: %d pictures in 3 s (%.1f fps)%s" % (
+            n, n / 3.0, ("  ERROR " + live.error) if live.error else ""))
+        if n == 0:
+            cam.out("  no pictures; the rest of this step needs the stream")
+            return
+        first = live.at(time.time())
+        cam.out("  picture size: %s, %d bytes" % (jpeg_size(first[1]), len(first[1])))
+
+        cam.head("Each view number")
+        for par in range(0, 7):
+            t0 = time.time()
+            text = cam.cmd(3028, par=par, show=False)
+            st = tag(text, "Status")
+            time.sleep(3.2)
+            sizes = sorted({jpeg_size(d) for _, d in live.since(t0)}, key=str)
+            cam.out("  view %d -> status %s, %d pictures in 3 s, sizes %s" % (
+                par, st, len(live.since(t0)), sizes))
+            for label, dt in (("0.2s", 0.2), ("0.5s", 0.5), ("1s", 1.0), ("3s", 3.0)):
+                save("view%d-%s.jpg" % (par, label), live.at(t0 + dt))
+
+        cam.head("Fast switching between front (0) and rear (1)")
+        for gap in (0.5, 0.25):
+            sub = "alt-%dms" % int(gap * 1000)
+            os.makedirs(os.path.join(folder, sub), exist_ok=True)
+            switches = []
+            t_start = time.time()
+            for i in range(20):
+                par = i % 2
+                switches.append((time.time(), par))
+                cam.cmd(3028, par=par, show=False)
+                time.sleep(gap)
+            frames = live.since(t_start)
+            for k, (ft, data) in enumerate(frames):
+                # Name each picture after the last view asked for before it arrived.
+                asked = [p for st, p in switches if st <= ft]
+                with open(os.path.join(folder, sub, "%03d-asked%s-%+.2fs.jpg" % (
+                        k, asked[-1] if asked else "-", ft - t_start)), "wb") as f:
+                    f.write(data)
+            cam.out("  every %d ms: 20 switches, %d pictures (saved in %s/%s)" % (
+                gap * 1000, len(frames), folder, sub))
+            time.sleep(1)
+    finally:
+        if original is not None:
+            cam.cmd(3028, par=original, show=False)
+            cam.out("  view set back to %s" % original)
+        live.stop()
+
+    cam.head("Two streams at once")
+    a, b = Mjpeg(cam).start(), Mjpeg(cam).start()
+    time.sleep(4)
+    cam.out("  first: %d pictures %s; second: %d pictures %s" % (
+        a.count(), a.error or "", b.count(), b.error or ""))
+    a.stop()
+    b.stop()
+
+    cam.head("Other ports near 8192")
+    for port in range(8190, 8200):
+        sck = socket.socket()
+        sck.settimeout(2)
+        try:
+            if cam.bind:
+                sck.bind((cam.bind, 0))
+            sck.connect((cam.host, port))
+            state = "OPEN"
+        except OSError:
+            state = "closed"
+        finally:
+            sck.close()
+        cam.out("  tcp %d %s" % (port, state))
+    cam.rec_secs()
+    cam.out("  Pictures saved in %s/ - please send that folder with this log." % os.path.abspath(folder))
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("steps", nargs="*", default=["info", "download", "time"],
-                    help="info download time mode idle (default: info download time)")
+                    help="info download time mode idle views (default: info download time)")
     ap.add_argument("--host", default="192.168.1.254")
     ap.add_argument("--port", type=int, default=80)
     ap.add_argument("--mb", type=int, default=32, help="MB to download per speed test (default 32)")
     ap.add_argument("--idle-secs", type=int, default=300)
     ap.add_argument("--yes", action="store_true", help="allow the 'mode' step, which can stop recording")
     a = ap.parse_intermixed_args()
-    bad = [s for s in a.steps if s not in ("info", "download", "time", "mode", "idle")]
+    bad = [s for s in a.steps if s not in ("info", "download", "time", "mode", "idle", "views")]
     if bad:
         ap.error("unknown step: %s" % ", ".join(bad))
 
@@ -441,6 +629,8 @@ def main():
                     step_time(cam)
                 elif s == "mode":
                     step_mode(cam, a.mb, a.yes)
+                elif s == "views":
+                    step_views(cam)
                 elif s == "idle":
                     step_idle(cam, a.idle_secs)
             except Exception as e:  # noqa: BLE001 - keep going with the next step
