@@ -74,6 +74,12 @@ class LiveController extends Notifier<LiveState> {
   int _frames = 0;
   bool _disposed = false;
 
+  /// The camera link itself is down; the stream reopens when it is back.
+  bool _waitingForLink = false;
+
+  /// The link has already been rebuilt once for this run of failures.
+  bool _rebuiltLink = false;
+
   @override
   LiveState build() {
     _transport = ref.watch(transportProvider);
@@ -86,6 +92,7 @@ class LiveController extends Notifier<LiveState> {
       _transport.keepScreenOn(false).ignore();
     });
     _transport.keepScreenOn(true).ignore();
+    ref.listen(sessionProvider.select((s) => s.link), _onLink);
     _fpsTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (_disposed) return;
       if (state.framesPerSecond != _frames) {
@@ -143,6 +150,48 @@ class LiveController extends Notifier<LiveState> {
     _timer = Timer(ref.read(liveStartTimeoutProvider), _onSilent);
   }
 
+  void _onLink(LinkState? previous, LinkState next) {
+    if (_disposed) return;
+    if (next == LinkState.connected) {
+      if (!_waitingForLink) return;
+      _waitingForLink = false;
+      _failures = 0;
+      _nudged = false;
+      _open();
+    } else if (previous == LinkState.connected || _waitingForLink) {
+      _waitingForLink = true;
+      _timer?.cancel();
+      _sub?.cancel();
+      _sub = null;
+      state = state.copyWith(
+        status: LiveStatus.connecting,
+        message: 'Camera connection lost. Reconnecting…',
+      );
+    }
+  }
+
+  bool get _linkUp => ref.read(sessionProvider).link == LinkState.connected;
+
+  /// The stream keeps failing. Rebuild the camera link once (what fixed it by hand:
+  /// Disconnect, then Connect) before asking the user.
+  void _giveUp(String message) {
+    final session = ref.read(sessionProvider);
+    if (!_rebuiltLink && session.saved != null) {
+      _rebuiltLink = true;
+      _waitingForLink = true;
+      _timer?.cancel();
+      _sub?.cancel();
+      _sub = null;
+      state = state.copyWith(
+        status: LiveStatus.connecting,
+        message: 'Restarting the camera connection…',
+      );
+      ref.read(sessionProvider.notifier).reconnect().ignore();
+      return;
+    }
+    _fail(message);
+  }
+
   /// Connected, but no picture arrived.
   Future<void> _onSilent() async {
     if (_disposed) return;
@@ -155,7 +204,7 @@ class LiveController extends Notifier<LiveState> {
       _open();
       return;
     }
-    _fail('The camera is not sending a picture.');
+    _giveUp('The camera is not sending a picture.');
   }
 
   void _onEnded(String reason) {
@@ -163,9 +212,14 @@ class LiveController extends Notifier<LiveState> {
     _timer?.cancel();
     _sub?.cancel();
     _sub = null;
+    // A dropped link ends the stream too; _onLink reopens it when the link is back.
+    if (_waitingForLink || !_linkUp) {
+      _onLink(LinkState.connected, ref.read(sessionProvider).link);
+      return;
+    }
     _failures++;
     if (_failures > _maxFailures) {
-      _fail('Live view stopped: $reason');
+      _giveUp('Live view stopped: $reason');
       return;
     }
     state = state.copyWith(
@@ -185,6 +239,17 @@ class LiveController extends Notifier<LiveState> {
   void retry() {
     _failures = 0;
     _nudged = false;
+    _rebuiltLink = false;
+    if (!_linkUp) {
+      // Reopening the stream cannot work without the link: rebuild the link instead.
+      _waitingForLink = true;
+      state = state.copyWith(
+        status: LiveStatus.connecting,
+        message: 'Reconnecting to the camera…',
+      );
+      ref.read(sessionProvider.notifier).reconnect().ignore();
+      return;
+    }
     state = state.copyWith(message: null);
     _open();
   }

@@ -66,6 +66,16 @@ class FakeCameraTransport implements CameraTransport {
   @override
   Future<void> clearDiagnosticLog() async => requests.clear();
 
+  /// Logs "saved" to Downloads, by file name.
+  final List<String> savedLogs = [];
+
+  @override
+  Future<String> saveDiagnosticLog() async {
+    final name = 'nCam-test-${savedLogs.length + 1}.log';
+    savedLogs.add(name);
+    return name;
+  }
+
   /// Clip URLs the app asked a preview picture for.
   final List<String> thumbnailRequests = [];
 
@@ -105,6 +115,12 @@ class FakeCameraTransport implements CameraTransport {
   /// list (seen on the real camera).
   int? fileListStatus;
 
+  /// How many times the app asked to join the camera.
+  int connectCount = 0;
+
+  /// When true, every request times out while the link still looks connected.
+  bool failRequests = false;
+
   /// Status the camera returns for a delete.
   int deleteStatus = 0;
 
@@ -135,6 +151,7 @@ class FakeCameraTransport implements CameraTransport {
 
   @override
   Future<void> connect({required String ssid, required String password}) async {
+    connectCount++;
     _set(LinkState.connecting);
     if (failConnect) {
       _set(LinkState.disconnected);
@@ -161,6 +178,10 @@ class FakeCameraTransport implements CameraTransport {
   }) async {
     if (_state != LinkState.connected) {
       throw const TransportException('io', 'not connected to the camera');
+    }
+    if (failRequests) {
+      // A link Android still calls connected, but nothing gets through.
+      throw const TransportException('io', 'SocketTimeoutException');
     }
     requests.add(url);
     final q = Uri.parse(url).queryParameters;

@@ -76,6 +76,30 @@ class CameraBridge(private val activity: Activity, messenger: BinaryMessenger) :
         })
     }
 
+    // Keeps the phone's Wi-Fi out of power saving while the live view or player is on
+    // screen, which otherwise adds stalls to a continuous stream.
+    private var wifiLock: WifiManager.WifiLock? = null
+
+    private fun setLowLatency(on: Boolean) {
+        try {
+            if (on) {
+                if (wifiLock == null) {
+                    val wm = activity.applicationContext.getSystemService(WifiManager::class.java)
+                    wifiLock = wm.createWifiLock(WifiManager.WIFI_MODE_FULL_LOW_LATENCY, "ncam:live")
+                        .apply {
+                            setReferenceCounted(false)
+                            acquire()
+                        }
+                }
+            } else {
+                wifiLock?.release()
+                wifiLock = null
+            }
+        } catch (_: Exception) {
+            // Optional; the stream works without it.
+        }
+    }
+
     private fun stopLive() {
         liveReader?.stop()
         liveReader = null
@@ -83,6 +107,7 @@ class CameraBridge(private val activity: Activity, messenger: BinaryMessenger) :
 
     fun dispose() {
         stopLive()
+        setLowLatency(false)
         live.setStreamHandler(null)
         activity.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         methods.setMethodCallHandler(null)
@@ -160,6 +185,15 @@ class CameraBridge(private val activity: Activity, messenger: BinaryMessenger) :
                 }
             }
 
+            "saveDiagnosticLog" -> io.execute {
+                try {
+                    val name = DiagLog.saveToDownloads(activity.applicationContext)
+                    main.post { result.success(name) }
+                } catch (e: Exception) {
+                    main.post { result.error("io", e.message, null) }
+                }
+            }
+
             "diagnosticLog" -> io.execute {
                 val text = DiagLog.read()
                 main.post { result.success(text) }
@@ -172,8 +206,9 @@ class CameraBridge(private val activity: Activity, messenger: BinaryMessenger) :
 
             "keepScreenOn" -> {
                 val flag = WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
-                if (call.argument<Boolean>("on") == true) activity.window.addFlags(flag)
-                else activity.window.clearFlags(flag)
+                val on = call.argument<Boolean>("on") == true
+                if (on) activity.window.addFlags(flag) else activity.window.clearFlags(flag)
+                setLowLatency(on)
                 result.success(null)
             }
 

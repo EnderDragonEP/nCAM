@@ -41,8 +41,7 @@ void main() {
     expect(find.text('Recording'), findsOneWidget);
     expect(find.text('DVR52AFHW3_YL_V3.19_TS'), findsOneWidget);
     expect(find.textContaining('Clock synced at'), findsOneWidget);
-    expect(find.text('Live view'), findsOneWidget);
-    expect(find.text('Saved on this phone'), findsOneWidget);
+    expect(find.textContaining('Current clip:'), findsOneWidget);
     expect(find.text('3 recordings'), findsOneWidget);
     expect(fake.timeSet, isNotNull);
   });

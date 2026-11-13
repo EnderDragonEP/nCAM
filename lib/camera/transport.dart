@@ -74,6 +74,9 @@ abstract class CameraTransport {
 
   Future<void> clearDiagnosticLog();
 
+  /// Saves the log to the phone's Downloads folder and returns the file name.
+  Future<String> saveDiagnosticLog();
+
   /// Keeps the phone's screen from turning off (for the live view).
   Future<void> keepScreenOn(bool on);
 }

@@ -4,7 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../state/live.dart';
 
 class LiveScreen extends ConsumerWidget {
-  const LiveScreen({super.key});
+  const LiveScreen({super.key, this.onBack});
+
+  /// When shown inside the dock, the back arrow returns to the home page.
+  final VoidCallback? onBack;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -18,6 +21,7 @@ class LiveScreen extends ConsumerWidget {
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
+        leading: onBack == null ? null : BackButton(onPressed: onBack),
         title: const Text('Live view'),
         actions: [
           if (live.status == LiveStatus.playing)

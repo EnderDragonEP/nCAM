@@ -81,6 +81,13 @@ class CameraStatus {
   final int recordingSeconds;
 
   bool get hasCard => cardStatus != 0;
+
+  CameraStatus withRecordingSeconds(int seconds) => CameraStatus(
+    firmware: firmware,
+    cardStatus: cardStatus,
+    freeBytes: freeBytes,
+    recordingSeconds: seconds,
+  );
   bool get isRecording => recordingSeconds > 0;
 }
 

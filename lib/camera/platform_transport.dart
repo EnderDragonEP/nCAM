@@ -103,6 +103,13 @@ class PlatformCameraTransport implements CameraTransport {
       '';
 
   @override
+  Future<String> saveDiagnosticLog() async =>
+      await _guard<String?>(
+        () => _methods.invokeMethod<String>('saveDiagnosticLog'),
+      ) ??
+      '';
+
+  @override
   Future<void> clearDiagnosticLog() =>
       _guard(() => _methods.invokeMethod<void>('clearDiagnosticLog'));
 

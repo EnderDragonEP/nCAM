@@ -10,7 +10,10 @@ import 'player_screen.dart';
 
 /// Clips already on the phone. Needs no camera connection.
 class SavedScreen extends ConsumerWidget {
-  const SavedScreen({super.key});
+  const SavedScreen({super.key, this.onBack});
+
+  /// When shown inside the dock, the back arrow returns to the home page.
+  final VoidCallback? onBack;
 
   Future<void> _delete(BuildContext context, WidgetRef ref, Recording r) async {
     final files = r.files;
@@ -83,7 +86,10 @@ class SavedScreen extends ConsumerWidget {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Saved on this phone')),
+      appBar: AppBar(
+        leading: onBack == null ? null : BackButton(onPressed: onBack),
+        title: const Text('Saved on this phone'),
+      ),
       body: items.isEmpty
           ? Center(
               child: Padding(

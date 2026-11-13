@@ -33,6 +33,12 @@ final wifiRestartDelayProvider = Provider<Duration>(
   (ref) => const Duration(seconds: 10),
 );
 
+/// How often the recording state is read while connected, so the clip timer and the
+/// record button stay true to the camera.
+final statusPollIntervalProvider = Provider<Duration>(
+  (ref) => const Duration(seconds: 5),
+);
+
 /// Gap between the two file listings used to spot the clip being recorded.
 final clockProbeDelayProvider = Provider<Duration>(
   (ref) => const Duration(milliseconds: 1500),
@@ -62,6 +68,7 @@ class SessionState {
     this.busy = false,
     this.error,
     this.status,
+    this.statusAt,
     this.files,
     this.filesError,
     this.writing = const {},
@@ -77,6 +84,9 @@ class SessionState {
   final bool busy;
   final String? error;
   final CameraStatus? status;
+
+  /// When [status] was read from the camera; the clip timer counts on from here.
+  final DateTime? statusAt;
   final List<CameraFile>? files;
 
   /// Why [files] is empty although the camera is connected: it would not give a list.
@@ -110,6 +120,7 @@ class SessionState {
     busy: busy ?? this.busy,
     error: error == _keep ? this.error : error as String?,
     status: status == _keep ? this.status : status as CameraStatus?,
+    statusAt: status == _keep ? statusAt : DateTime.now(),
     files: files == _keep ? this.files : files as List<CameraFile>?,
     filesError: filesError == _keep ? this.filesError : filesError as String?,
     writing: writing ?? this.writing,
@@ -127,15 +138,79 @@ class SessionController extends Notifier<SessionState> {
   late CameraTransport _transport;
   late CameraApi _api;
   int _generation = 0;
+  Timer? _poll;
+  int _pollFailures = 0;
+  bool _polling = false;
+  bool _foreground = true;
+  bool _reconnecting = false;
 
   @override
   SessionState build() {
     _transport = ref.watch(transportProvider);
     _api = ref.watch(cameraApiProvider);
     final sub = _transport.linkStates.listen(_onLink);
-    ref.onDispose(sub.cancel);
+    _poll = Timer.periodic(
+      ref.read(statusPollIntervalProvider),
+      (_) => _tick(),
+    );
+    ref.onDispose(() {
+      sub.cancel();
+      _poll?.cancel();
+    });
     Future.microtask(_loadSaved);
     return const SessionState();
+  }
+
+  /// The app tells the session whether it is on screen; nothing is polled in the
+  /// background.
+  void setForeground(bool foreground) {
+    _foreground = foreground;
+    if (foreground) _tick();
+  }
+
+  /// Reads the recording state so the clip timer and record button follow the camera.
+  /// Three failures in a row while Android still calls the link connected mean the link
+  /// is dead without Android noticing; it is then rebuilt.
+  Future<void> _tick() async {
+    if (!_foreground || _polling || !state.connected || state.busy) return;
+    final status = state.status;
+    if (status == null) {
+      // Joined, but the camera never answered the first time: try again.
+      unawaited(_onConnected());
+      return;
+    }
+    final gen = _generation;
+    _polling = true;
+    try {
+      final seconds = await _api.recordingSeconds();
+      _pollFailures = 0;
+      if (!ref.mounted || gen != _generation || state.busy) return;
+      state = state.copyWith(status: status.withRecordingSeconds(seconds));
+    } catch (_) {
+      if (!ref.mounted || gen != _generation) return;
+      _pollFailures++;
+      if (_pollFailures >= 3) {
+        _pollFailures = 0;
+        unawaited(reconnect());
+      }
+    } finally {
+      _polling = false;
+    }
+  }
+
+  /// Drops the camera link and joins again with the saved details. This is what fixed a
+  /// stuck connection by hand (Disconnect, then Connect).
+  Future<void> reconnect() async {
+    final saved = state.saved;
+    if (saved == null || _reconnecting) return;
+    _reconnecting = true;
+    try {
+      await disconnect();
+      if (!ref.mounted) return;
+      await connect(saved.ssid, saved.password);
+    } finally {
+      _reconnecting = false;
+    }
   }
 
   Future<void> _loadSaved() async {
@@ -322,19 +397,35 @@ class SessionController extends Notifier<SessionState> {
 
   /// Tells the camera to start recording and checks that it did. Returns an error
   /// message, or null when the camera is recording.
-  Future<String?> startRecording() async {
+  Future<String?> startRecording() => _setRecording(true);
+
+  /// Tells the camera to stop recording and checks that it did. Returns an error
+  /// message, or null when the camera has stopped.
+  Future<String?> stopRecording() => _setRecording(false);
+
+  Future<String?> _setRecording(bool on) async {
+    final what = on ? 'start' : 'stop';
     try {
-      await _api.setRecording(true);
+      await _api.setRecording(on);
     } catch (e) {
-      return 'The camera refused to start recording: $e';
+      return 'The camera refused to $what recording: $e';
     }
     await Future<void>.delayed(ref.read(clockProbeDelayProvider));
     if (!ref.mounted) return null;
-    await refreshWhenIdle();
-    if (!ref.mounted) return null;
-    return (state.status?.isRecording ?? false)
-        ? null
-        : 'The camera accepted the command but is still not recording.';
+    try {
+      final seconds = await _api.recordingSeconds();
+      final status = state.status;
+      if (ref.mounted && status != null) {
+        state = state.copyWith(status: status.withRecordingSeconds(seconds));
+      }
+    } catch (e) {
+      return 'The camera was told to $what recording, but did not answer afterwards: $e';
+    }
+    final recording = state.status?.isRecording ?? false;
+    if (recording == on) return null;
+    return on
+        ? 'The camera accepted the command but is still not recording.'
+        : 'The camera accepted the command but is still recording.';
   }
 
   /// Manual "Sync time".
@@ -412,8 +503,8 @@ class SessionController extends Notifier<SessionState> {
         state = state.copyWith(
           filesError:
               'The camera did not send a file list (${e.message}). '
-              'It may have no recordings yet, for example right after the card '
-              'was formatted or replaced.',
+              'It does this when the card has no recordings yet, and on some days '
+              'while it records; stop recording and refresh to check.',
         );
       }
       return const [];

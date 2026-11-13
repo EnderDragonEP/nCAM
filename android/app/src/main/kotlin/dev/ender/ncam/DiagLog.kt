@@ -1,6 +1,10 @@
 package dev.ender.ncam
 
+import android.content.ContentValues
 import android.content.Context
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -51,6 +55,43 @@ object DiagLog {
             file?.writeText("")
         } catch (_: Exception) {
         }
+    }
+
+    /**
+     * Writes the log to the phone's Downloads folder as `nCam-<date>-<time>.log` and returns
+     * the file name. Uses MediaStore, which needs no storage permission.
+     */
+    fun saveToDownloads(context: Context): String {
+        val name = "nCam-" + SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date()) + ".log"
+        val header = buildString {
+            append("nCAM diagnostic log, saved ${Date()}\n")
+            val version = try {
+                context.packageManager.getPackageInfo(context.packageName, 0).versionName
+            } catch (_: Exception) {
+                "?"
+            }
+            append("App $version, Android ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})\n")
+            append("Camera link: ${CameraLink.state}\n\n")
+        }
+        val values = ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, name)
+            put(MediaStore.MediaColumns.MIME_TYPE, "text/plain")
+            put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+        }
+        val resolver = context.contentResolver
+        val uri = resolver.insert(
+            MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY), values,
+        ) ?: throw IllegalStateException("Android did not create the file")
+        try {
+            resolver.openOutputStream(uri)?.use { out ->
+                out.write(header.toByteArray())
+                out.write(read().toByteArray())
+            } ?: throw IllegalStateException("could not open the file")
+        } catch (e: Exception) {
+            resolver.delete(uri, null, null)
+            throw e
+        }
+        return name
     }
 
     /** `http://192.168.1.254/?custom=1&cmd=3004&str=secret` -> `/?custom=1&cmd=3004&str=***` */

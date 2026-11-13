@@ -14,7 +14,10 @@ import 'player_screen.dart';
 enum LensFilter { both, front, rear }
 
 class RecordingsScreen extends ConsumerStatefulWidget {
-  const RecordingsScreen({super.key});
+  const RecordingsScreen({super.key, this.onBack});
+
+  /// When shown inside the dock, the back arrow returns to the home page.
+  final VoidCallback? onBack;
 
   @override
   ConsumerState<RecordingsScreen> createState() => _RecordingsScreenState();
@@ -232,6 +235,9 @@ class _RecordingsScreenState extends ConsumerState<RecordingsScreen> {
                 ],
               )
             : AppBar(
+                leading: widget.onBack == null
+                    ? null
+                    : BackButton(onPressed: widget.onBack),
                 title: const Text('Recordings'),
                 actions: [
                   IconButton(

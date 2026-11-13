@@ -119,6 +119,33 @@ void main() {
       expect(c.read(liveProvider).status, LiveStatus.connecting);
     });
 
+    test('waits out a lost camera link and reopens when it is back', () async {
+      await open();
+      camera.emitFrame();
+      await tick();
+      expect(c.read(liveProvider).status, LiveStatus.playing);
+
+      // Seen on the real phone: Android reports the link lost mid-stream.
+      camera.dropLink();
+      await tick();
+      final waiting = c.read(liveProvider);
+      expect(waiting.status, LiveStatus.connecting);
+      expect(waiting.message, contains('connection lost'));
+      expect(waiting.frame, isNotNull);
+      // Losing the link is not counted as a stream failure, however long it lasts.
+      camera.breakLive('not connected');
+      await tick();
+      expect(c.read(liveProvider).status, LiveStatus.connecting);
+      expect(camera.liveOpened, hasLength(1));
+
+      camera.restoreLink();
+      await tick();
+      expect(camera.liveOpened, hasLength(2));
+      camera.emitFrame();
+      await tick();
+      expect(c.read(liveProvider).status, LiveStatus.playing);
+    });
+
     test('switches the camera view', () async {
       await open();
       expect(await c.read(liveProvider.notifier).setView(0), isNull);

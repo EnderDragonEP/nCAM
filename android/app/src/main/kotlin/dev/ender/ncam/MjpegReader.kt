@@ -1,5 +1,6 @@
 package dev.ender.ncam
 
+import android.os.SystemClock
 import java.io.BufferedInputStream
 import java.io.ByteArrayOutputStream
 import java.io.EOFException
@@ -36,6 +37,9 @@ class MjpegReader(
 
     private fun run() {
         var error: String? = null
+        var frames = 0L
+        val started = SystemClock.elapsedRealtime()
+        DiagLog.add("live: opening $url")
         try {
             val network = CameraLink.network ?: throw IOException("not connected to the camera")
             val c = network.openConnection(URL(url)) as HttpURLConnection
@@ -48,7 +52,15 @@ class MjpegReader(
             val type = c.contentType.orEmpty()
             if (type.startsWith("text/")) throw IOException("the camera did not send video ($type)")
             BufferedInputStream(c.inputStream, 64 * 1024).use { input ->
-                while (!stopped) onFrame(readFrame(input))
+                while (!stopped) {
+                    val frame = readFrame(input)
+                    if (frames == 0L) {
+                        val ms = SystemClock.elapsedRealtime() - started
+                        DiagLog.add("live: first picture after $ms ms")
+                    }
+                    frames++
+                    onFrame(frame)
+                }
             }
         } catch (e: Exception) {
             if (!stopped) error = "${e.javaClass.simpleName}: ${e.message}"
@@ -56,6 +68,9 @@ class MjpegReader(
             try { conn?.disconnect() } catch (_: Exception) {}
             conn = null
         }
+        val secs = (SystemClock.elapsedRealtime() - started) / 1000
+        val how = if (stopped) "closed by the app" else "ended: ${error ?: "camera closed the stream"}"
+        DiagLog.add("live: $how after $secs s, $frames pictures, link ${CameraLink.state}")
         if (!stopped) onEnd(error ?: "the camera closed the stream")
     }
 

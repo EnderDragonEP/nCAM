@@ -47,6 +47,25 @@ class _DiagnosticScreenState extends ConsumerState<DiagnosticScreen> {
             icon: const Icon(Icons.refresh),
           ),
           IconButton(
+            tooltip: 'Save to Downloads',
+            onPressed: log == null || log.isEmpty
+                ? null
+                : () async {
+                    final messenger = ScaffoldMessenger.of(context);
+                    String message;
+                    try {
+                      final name = await ref
+                          .read(transportProvider)
+                          .saveDiagnosticLog();
+                      message = 'Saved to Downloads as $name';
+                    } catch (e) {
+                      message = 'Could not save the log: $e';
+                    }
+                    messenger.showSnackBar(SnackBar(content: Text(message)));
+                  },
+            icon: const Icon(Icons.download),
+          ),
+          IconButton(
             tooltip: 'Copy all',
             onPressed: log == null || log.isEmpty
                 ? null

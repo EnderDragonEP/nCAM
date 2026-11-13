@@ -45,6 +45,16 @@ object CameraLink {
     private val listeners = CopyOnWriteArraySet<(String) -> Unit>()
     private var callback: ConnectivityManager.NetworkCallback? = null
 
+    // What the user asked for, kept so a lost link can be rejoined without them.
+    private var appContext: Context? = null
+    private var password: String = ""
+    private var wanted = false
+    private var rejoinAttempt = 0
+    private val rejoin = Runnable { rejoinNow() }
+
+    private val REJOIN_DELAYS_MS = longArrayOf(3_000, 5_000, 10_000, 20_000, 30_000)
+    private const val REJOIN_TIMEOUT_MS = 20_000
+
     fun addListener(l: (String) -> Unit) = listeners.add(l)
     fun removeListener(l: (String) -> Unit) = listeners.remove(l)
 
@@ -58,6 +68,9 @@ object CameraLink {
      * Asks Android to join [ssid]. [onResult] is called once on the main thread with null on
      * success or a short error code: "unavailable" (not found, wrong password, or the user
      * dismissed the system dialog) or "error:<message>".
+     *
+     * Once joined, the link is kept: if Android reports it lost, it is requested again
+     * until it comes back or [disconnect] is called.
      */
     fun connect(
         context: Context,
@@ -66,7 +79,20 @@ object CameraLink {
         timeoutMs: Int,
         onResult: (String?) -> Unit,
     ) {
-        val cm = context.applicationContext.getSystemService(ConnectivityManager::class.java)
+        main.removeCallbacks(rejoin)
+        appContext = context.applicationContext
+        this.ssid = ssid
+        this.password = password
+        wanted = true
+        rejoinAttempt = 0
+        setState(STATE_CONNECTING)
+        request(timeoutMs, rejoining = false, onResult)
+    }
+
+    private fun request(timeoutMs: Int, rejoining: Boolean, onResult: (String?) -> Unit) {
+        val context = appContext ?: return
+        val ssid = ssid ?: return
+        val cm = context.getSystemService(ConnectivityManager::class.java)
         release(cm)
 
         val spec = WifiNetworkSpecifier.Builder().setSsid(ssid).apply {
@@ -90,41 +116,73 @@ object CameraLink {
         val cb = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(n: Network) {
                 if (callback !== this) return
+                main.removeCallbacks(rejoin)
+                rejoinAttempt = 0
                 network = n
                 setState(STATE_CONNECTED)
                 report(null)
             }
 
+            override fun onLosing(n: Network, maxMsToLive: Int) {
+                if (callback === this) DiagLog.add("link: Android says it is losing the link")
+            }
+
             override fun onLost(n: Network) {
                 if (callback !== this) return
-                // The request stays registered, so Android rejoins by itself when the camera
-                // comes back in range and onAvailable fires again.
                 network = null
                 setState(STATE_LOST)
+                // Android does not reliably bring a lost camera link back by itself (seen on
+                // the real phone: nothing for over a minute), so ask for it again.
+                scheduleRejoin()
             }
 
             override fun onUnavailable() {
                 if (callback !== this) return
                 callback = null
                 network = null
-                setState(STATE_DISCONNECTED)
-                report("unavailable")
+                if (rejoining && wanted) {
+                    // Camera still out of reach: keep trying.
+                    scheduleRejoin()
+                } else {
+                    setState(STATE_DISCONNECTED)
+                    report("unavailable")
+                }
             }
         }
 
-        this.ssid = ssid
         callback = cb
-        setState(STATE_CONNECTING)
         try {
             cm.requestNetwork(request, cb, main, timeoutMs)
         } catch (e: Exception) {
             callback = null
-            setState(STATE_DISCONNECTED)
-            report("error:${e.message}")
+            DiagLog.add("link: request failed: ${e.message}")
+            if (rejoining && wanted) {
+                scheduleRejoin()
+            } else {
+                setState(STATE_DISCONNECTED)
+                report("error:${e.message}")
+            }
         }
     }
 
+    private fun scheduleRejoin() {
+        if (!wanted) return
+        main.removeCallbacks(rejoin)
+        val delay = REJOIN_DELAYS_MS[minOf(rejoinAttempt, REJOIN_DELAYS_MS.size - 1)]
+        rejoinAttempt++
+        DiagLog.add("link: rejoining in ${delay / 1000} s (attempt $rejoinAttempt)")
+        main.postDelayed(rejoin, delay)
+    }
+
+    private fun rejoinNow() {
+        if (!wanted || state == STATE_CONNECTED) return
+        // Stays "lost" for the app while this runs: it is not a new connection.
+        request(REJOIN_TIMEOUT_MS, rejoining = true) {}
+    }
+
     fun disconnect(context: Context) {
+        wanted = false
+        main.removeCallbacks(rejoin)
         val cm = context.applicationContext.getSystemService(ConnectivityManager::class.java)
         release(cm)
         setState(STATE_DISCONNECTED)

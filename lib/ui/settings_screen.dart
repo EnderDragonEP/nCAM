@@ -7,7 +7,10 @@ import '../state/settings.dart';
 import 'format.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
-  const SettingsScreen({super.key});
+  const SettingsScreen({super.key, this.onBack});
+
+  /// When shown inside the dock, the back arrow returns to the home page.
+  final VoidCallback? onBack;
 
   @override
   ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
@@ -155,6 +158,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: widget.onBack == null
+            ? null
+            : BackButton(onPressed: widget.onBack),
         title: const Text('Camera settings'),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(4),

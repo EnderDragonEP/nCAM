@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -9,10 +11,7 @@ import '../state/session.dart';
 import 'diagnostic_screen.dart';
 import 'fast_mode.dart';
 import 'format.dart';
-import 'live_screen.dart';
-import 'recordings_screen.dart';
-import 'saved_screen.dart';
-import 'settings_screen.dart';
+import 'app_shell.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -34,14 +33,6 @@ class HomeScreen extends ConsumerWidget {
             ),
             icon: const Icon(Icons.receipt_long_outlined),
           ),
-          if (s.connected && s.status != null)
-            IconButton(
-              tooltip: 'Camera settings',
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
-              ),
-              icon: const Icon(Icons.settings_outlined),
-            ),
           if (s.connected)
             IconButton(
               tooltip: 'Refresh',
@@ -71,28 +62,9 @@ class HomeScreen extends ConsumerWidget {
                   const SizedBox(height: 12),
                   _ConnectCard(state: s),
                 ],
-                const SizedBox(height: 12),
-                const _SavedCard(),
                 if (s.connected && s.status != null) ...[
                   const SizedBox(height: 12),
-                  _StatusCard(status: s.status!),
-                  const SizedBox(height: 12),
-                  Card(
-                    clipBehavior: Clip.antiAlias,
-                    child: ListTile(
-                      leading: const Icon(Icons.live_tv_outlined),
-                      title: const Text('Live view'),
-                      subtitle: const Text(
-                        'See what the camera sees right now.',
-                      ),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const LiveScreen(),
-                        ),
-                      ),
-                    ),
-                  ),
+                  _StatusCard(status: s.status!, statusAt: s.statusAt),
                   const SizedBox(height: 12),
                   _TimeCard(state: s),
                   if (s.filesError != null) ...[
@@ -111,32 +83,6 @@ class HomeScreen extends ConsumerWidget {
                 ],
               ],
             ),
-    );
-  }
-}
-
-class _SavedCard extends ConsumerWidget {
-  const _SavedCard();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final count = ref.watch(localFilesProvider).value?.length ?? 0;
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: ListTile(
-        leading: const Icon(Icons.smartphone),
-        title: const Text('Saved on this phone'),
-        subtitle: Text(
-          count == 0
-              ? 'No clips yet'
-              : count == 1
-              ? '1 clip, playable without the camera'
-              : '$count clips, playable without the camera',
-        ),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: () => Navigator.of(context)
-            .push(MaterialPageRoute<void>(builder: (_) => const SavedScreen())),
-      ),
     );
   }
 }
@@ -302,8 +248,9 @@ class _ConnectCardState extends ConsumerState<_ConnectCard> {
                 label: Text('Connect to ${saved.ssid}'),
               ),
               const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              // Wraps instead of overflowing with large system text.
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
                 children: [
                   TextButton(
                     onPressed: busy
@@ -402,8 +349,9 @@ class _ConnectCardState extends ConsumerState<_ConnectCard> {
 }
 
 class _StatusCard extends ConsumerStatefulWidget {
-  const _StatusCard({required this.status});
+  const _StatusCard({required this.status, required this.statusAt});
   final CameraStatus status;
+  final DateTime? statusAt;
 
   @override
   ConsumerState<_StatusCard> createState() => _StatusCardState();
@@ -468,8 +416,9 @@ class _StatusCardState extends ConsumerState<_StatusCard> {
               ),
               title: Text(status.isRecording ? 'Recording' : 'Not recording'),
               subtitle: status.isRecording
-                  ? Text(
-                      'Current clip: ${formatSpan(Duration(seconds: status.recordingSeconds))}',
+                  ? ClipTimer(
+                      seconds: status.recordingSeconds,
+                      readAt: widget.statusAt,
                     )
                   : null,
             ),
@@ -582,10 +531,49 @@ class _FilesCard extends ConsumerWidget {
           ].join(' · '),
         ),
         trailing: const Icon(Icons.chevron_right),
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(builder: (_) => const RecordingsScreen()),
-        ),
+        onTap: () =>
+            ref.read(shellTabProvider.notifier).show(ShellTab.recordings),
       ),
     );
+  }
+}
+
+/// "Current clip: 4 min 10 s", counting up every second between readings from the
+/// camera. The camera is asked again every few seconds, which corrects the count when a
+/// new clip starts.
+class ClipTimer extends StatefulWidget {
+  const ClipTimer({super.key, required this.seconds, required this.readAt});
+
+  /// The camera's count when it was read.
+  final int seconds;
+  final DateTime? readAt;
+
+  @override
+  State<ClipTimer> createState() => _ClipTimerState();
+}
+
+class _ClipTimerState extends State<ClipTimer> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final readAt = widget.readAt;
+    final since = readAt == null
+        ? 0
+        : DateTime.now().difference(readAt).inSeconds;
+    final seconds = widget.seconds + (since < 0 ? 0 : since);
+    return Text('Current clip: ${formatSpan(Duration(seconds: seconds))}');
   }
 }

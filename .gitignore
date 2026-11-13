@@ -22,4 +22,5 @@ android/key.properties
 
 # Test logs
 camtest-*.log
+nCam-*.log
 __pycache__/
