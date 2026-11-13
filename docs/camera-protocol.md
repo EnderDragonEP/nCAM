@@ -37,6 +37,16 @@ Measured with `tools/camtest.py` from the phone, **while the camera was recordin
 
 | Playback mode (T5) | `3001 par=2` **stops recording** (2016 → 0). Download speed rose from 1.38 to **3.12 MB/s**. `3001 par=1` took 5 s to answer and recording **did not restart by itself** (still 0 after 15 s); `2001 par=1` restarted it. |
 
+### Seen in daily use (2026-11-12 to 11-13, from the app's diagnostic log)
+
+| Item | Result |
+|---|---|
+| File list (3015) refused | Answers `<Function><Cmd>3015</Cmd><Status>-3</Status></Function>` instead of a list. Seen on a freshly formatted card while recording, and on 11-12 while recording with files on the card. When not recording, the list came back. On 11-11 the list worked during recording, so the rule is not settled. |
+| Card status (3024) | `1` on 11-13, `33` on 11-11. Meaning of the values unknown. |
+| Link loss during live view | Android reported the camera link lost twice in 14 minutes with live view open. Android did not rejoin by itself for over a minute; Disconnect + Connect fixed it. |
+| View index (3028) | `0` = front, `1` = rear, `2` = both side by side. |
+| Clip rollover | 2016 resets every 10 minutes (loop length 2003 = 3). |
+
 Not yet run: T9 (idle timeout), thumbnails with recording stopped, and whether stopping recording alone (`2001 par=0`, without playback mode) gives the same speed-up.
 
 ---

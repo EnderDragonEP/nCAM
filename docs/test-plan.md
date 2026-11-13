@@ -184,6 +184,21 @@ These are the ones that decide whether the app can replace the official one.
 | J13 | **Rapid use.** Tap quickly between Recordings, Live view, Settings and back, 20 times, during a download. | No crash, no stuck spinner; the download is unaffected. | |
 | J14 | **Recording is sacred.** At the end of each test day, check the card. | There is a continuous run of clips covering every period the camera was powered, except the deliberate pauses in section E and I6. | |
 
+## L. Road use (added 2026-11-13)
+
+| ID | Do | Expect | Result |
+|---|---|---|---|
+| L1 | Look at the bottom dock on every page. | Live, Recordings, Record, Saved, Settings are always there; back (arrow or system) returns to the home page. | |
+| L2 | Camera recording: tap the Record button once. | Light vibration and "Hold the button to stop recording". Recording continues. | |
+| L3 | Hold the Record button. | A ring fills over 1.5 s, a strong vibration, then "Recording stopped". Letting go early stops nothing. | |
+| L4 | Camera stopped: tap the Record button. | Recording starts; the button turns red and says "Hold to stop". | |
+| L5 | Watch "Current clip" on the home page for a minute, including when a new 10-minute clip starts. | Counts up every second and drops back to a few seconds at the new clip, without reconnecting. | |
+| L6 | Live view open: walk out of Wi-Fi range for a minute, then back. | "Camera connection lost. Reconnecting…", then the picture returns by itself. No Disconnect needed. | |
+| L7 | Live view open for 20 minutes while driving. | If the picture drops, it comes back by itself. Save the log afterwards (L9) either way. | |
+| L8 | During a cut-out, tap "Try again". | The app rebuilds the camera connection and the picture returns. | |
+| L9 | Diagnostic log → download icon. | "Saved to Downloads as nCam-….log"; the file is in the phone's Downloads folder and opens in a text viewer. No permission prompt. | |
+| L10 | Turn on the largest font size; look at the dock and home page. | Nothing cut off or overlapping. | |
+
 ## K. Acceptance: the four original problems
 
 Fill this in last. Each line passes only if every listed test passed.
