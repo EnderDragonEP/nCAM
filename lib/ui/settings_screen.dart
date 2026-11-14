@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../camera/models.dart';
 import '../state/auto_connect.dart';
+import '../state/dock_side.dart';
 import '../state/session.dart';
 import '../state/settings.dart';
 import 'appearance_tiles.dart';
@@ -204,6 +205,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
             value: ref.watch(autoConnectProvider),
             onChanged: ref.read(autoConnectProvider.notifier).set,
+          ),
+          ListTile(
+            leading: const Icon(Icons.fiber_manual_record_outlined),
+            title: const Text('Record button'),
+            subtitle: const Text('Side of the dock'),
+            trailing: SegmentedButton<RecordButtonSide>(
+              segments: [
+                for (final s in RecordButtonSide.values)
+                  ButtonSegment(value: s, label: Text(s.label)),
+              ],
+              selected: {ref.watch(recordButtonSideProvider)},
+              showSelectedIcon: false,
+              onSelectionChanged: (s) =>
+                  ref.read(recordButtonSideProvider.notifier).set(s.first),
+            ),
           ),
           if (!connected) ...[
             header('Camera'),

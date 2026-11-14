@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../state/dock_side.dart';
 import '../state/session.dart';
 import '../state/wallpaper.dart';
 import 'home_screen.dart';
@@ -110,9 +111,10 @@ const _destinations = [
   ),
 ];
 
-/// Floating navigation: the record button on the left, and a pill of page icons with
-/// a highlight that slides to the open page. Settings opens from the home page. Pages scroll behind it over
-/// a soft fade.
+/// Floating navigation: a pill of page icons with a highlight that slides to the open
+/// page, and the record button beside it, on the side chosen in Settings (right by
+/// default). Settings opens from the home page. Pages scroll behind the dock over a
+/// soft fade.
 class Dock extends ConsumerWidget {
   const Dock({super.key});
 
@@ -124,6 +126,7 @@ class Dock extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tab = ref.watch(shellTabProvider);
     final session = ref.watch(sessionProvider);
+    final side = ref.watch(recordButtonSideProvider);
     final ready = session.connected && session.status != null;
     final scheme = Theme.of(context).colorScheme;
     final background = Theme.of(context).scaffoldBackgroundColor;
@@ -212,12 +215,18 @@ class Dock extends ConsumerWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const RecordButton(),
-              const SizedBox(width: 12),
+              if (side == RecordButtonSide.left) ...[
+                const RecordButton(),
+                const SizedBox(width: 12),
+              ],
               // Shrinks only if the screen is very narrow or the text is huge.
               Flexible(
                 child: FittedBox(fit: BoxFit.scaleDown, child: pill),
               ),
+              if (side == RecordButtonSide.right) ...[
+                const SizedBox(width: 12),
+                const RecordButton(),
+              ],
             ],
           ),
         ),

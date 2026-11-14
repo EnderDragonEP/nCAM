@@ -10,6 +10,7 @@ import 'package:ncam/state/session.dart';
 import 'package:ncam/ui/app_shell.dart';
 import 'package:ncam/ui/diagnostic_screen.dart';
 import 'package:ncam/ui/record_button.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   late FakeCameraTransport camera;
@@ -54,10 +55,10 @@ void main() {
       for (final label in ['Live', 'Recordings', 'Saved', 'Settings']) {
         expect(find.byTooltip(label), findsOneWidget, reason: label);
       }
-      // The record button sits to the left of the page icons.
+      // By default the record button sits to the right of the page icons.
       expect(
         tester.getCenter(find.byType(RecordButton)).dx,
-        lessThan(tester.getCenter(find.byTooltip('Live')).dx),
+        greaterThan(tester.getCenter(find.byTooltip('Saved')).dx),
       );
 
       await tester.tap(find.byTooltip('Live'));
@@ -149,6 +150,41 @@ void main() {
       }
       await tester.pumpAndSettle();
     }
+  });
+
+  testWidgets('the record button can be moved to the left in Settings', (
+    tester,
+  ) async {
+    await open(tester);
+    await tester.tap(find.byTooltip('Settings'));
+    await tester.pumpAndSettle();
+    // Scroll the option clear of the floating dock before tapping it.
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -200));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Left'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.getCenter(find.byType(RecordButton)).dx,
+      lessThan(tester.getCenter(find.byTooltip('Live')).dx),
+    );
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('record_button_side'), 'left');
+
+    await tester.tap(find.text('Right'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.getCenter(find.byType(RecordButton)).dx,
+      greaterThan(tester.getCenter(find.byTooltip('Saved')).dx),
+    );
+  });
+
+  testWidgets('a saved choice of side is used at start-up', (tester) async {
+    SharedPreferences.setMockInitialValues({'record_button_side': 'left'});
+    await open(tester);
+    expect(
+      tester.getCenter(find.byType(RecordButton)).dx,
+      lessThan(tester.getCenter(find.byTooltip('Live')).dx),
+    );
   });
 
   group('record button', () {
