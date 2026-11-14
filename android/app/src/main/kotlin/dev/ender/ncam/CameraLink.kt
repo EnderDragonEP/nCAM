@@ -50,6 +50,9 @@ object CameraLink {
     private var password: String = ""
     private var wanted = false
     private var rejoinAttempt = 0
+
+    // Answers the app's pending connect call; disconnect() uses it to say "cancelled".
+    private var pendingReport: ((String?) -> Unit)? = null
     private val rejoin = Runnable { rejoinNow() }
 
     private val REJOIN_DELAYS_MS = longArrayOf(3_000, 5_000, 10_000, 20_000, 30_000)
@@ -109,9 +112,11 @@ object CameraLink {
         fun report(error: String?) {
             if (!reported) {
                 reported = true
+                pendingReport = null
                 onResult(error)
             }
         }
+        if (!rejoining) pendingReport = { error -> report(error) }
 
         val cb = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(n: Network) {
@@ -186,6 +191,10 @@ object CameraLink {
         val cm = context.applicationContext.getSystemService(ConnectivityManager::class.java)
         release(cm)
         setState(STATE_DISCONNECTED)
+        // A join still waiting for Android was cancelled by the user: say so, or the
+        // app's connect call would wait forever.
+        pendingReport?.invoke("cancelled")
+        pendingReport = null
     }
 
     private fun release(cm: ConnectivityManager) {

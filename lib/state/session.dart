@@ -243,6 +243,11 @@ class SessionController extends Notifier<SessionState> {
       if (ref.mounted) state = state.copyWith(saved: creds);
     } on TransportException catch (e) {
       if (!ref.mounted) return;
+      if (e.message == 'cancelled') {
+        // The user pressed Cancel: not an error.
+        state = state.copyWith(busy: false);
+        return;
+      }
       state = state.copyWith(
         busy: false,
         error: e.message == 'unavailable'

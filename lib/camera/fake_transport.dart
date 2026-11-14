@@ -153,6 +153,11 @@ class FakeCameraTransport implements CameraTransport {
   Future<void> connect({required String ssid, required String password}) async {
     connectCount++;
     _set(LinkState.connecting);
+    if (holdConnect) {
+      // Stays "connecting" until the test calls finishConnect() or disconnects.
+      final pending = _pendingConnect = Completer<void>();
+      await pending.future;
+    }
     if (failConnect) {
       _set(LinkState.disconnected);
       throw const TransportException('connect_failed', 'unavailable');
@@ -160,8 +165,24 @@ class FakeCameraTransport implements CameraTransport {
     _set(LinkState.connected);
   }
 
+  /// When true, connect() waits in the "connecting" state.
+  bool holdConnect = false;
+  Completer<void>? _pendingConnect;
+
+  void finishConnect() => _pendingConnect?.complete();
+
   @override
-  Future<void> disconnect() async => _set(LinkState.disconnected);
+  Future<void> disconnect() async {
+    final pending = _pendingConnect;
+    _pendingConnect = null;
+    _set(LinkState.disconnected);
+    if (pending != null && !pending.isCompleted) {
+      // Same answer as the real camera link gives a cancelled join.
+      pending.completeError(
+        const TransportException('connect_failed', 'cancelled'),
+      );
+    }
+  }
 
   @override
   Future<List<WifiNetworkInfo>> scan() async => const [

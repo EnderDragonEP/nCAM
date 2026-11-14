@@ -145,8 +145,12 @@ class _LinkCard extends ConsumerWidget {
         trailing: state.link == LinkState.disconnected
             ? null
             : TextButton(
+                // The same action, named for what it does at the time: stop
+                // trying while joining or rejoining, leave once connected.
                 onPressed: ref.read(sessionProvider.notifier).disconnect,
-                child: const Text('Disconnect'),
+                child: Text(
+                  state.link == LinkState.connected ? 'Disconnect' : 'Cancel',
+                ),
               ),
       ),
     );
