@@ -20,6 +20,26 @@ flutter test
 flutter build apk --release --target-platform android-arm64
 ```
 
+### Where the APK ends up
+
+The build writes the installable app to:
+
+```text
+build/app/outputs/flutter-apk/app-release.apk
+```
+
+- **Each build overwrites it.** The file name stays the same, so copy it somewhere else if you want to keep a particular version.
+- **64-bit ARM only.** That covers current phones; drop `--target-platform android-arm64` to build for every CPU type (a larger file).
+- **Signed with the debug key.** Android shows an "unknown app" warning when you install it, and a phone that has a differently signed copy must uninstall that first.
+
+Install it by copying the file to the phone and opening it, or over USB with debugging enabled:
+
+```sh
+adb install -r build/app/outputs/flutter-apk/app-release.apk
+```
+
+Prototype builds are also kept, with a timestamp in the name, in `M:\nCam-prototypes\nCam-<yyyyMMdd-HHmmss>.apk` on the development PC.
+
 ## Camera test script
 
 `tools/camtest.py` queries the camera directly (Python 3, runs on a PC or in Termux). Join the camera's Wi-Fi first, then run `python tools/camtest.py`.
