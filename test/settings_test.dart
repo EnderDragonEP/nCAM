@@ -219,7 +219,7 @@ void main() {
 
     testWidgets('audio switch sends the change', (tester) async {
       await open(tester);
-      await tester.tap(find.byType(Switch));
+      await tester.tap(find.widgetWithText(SwitchListTile, 'Record audio'));
       await tester.pumpAndSettle();
       expect(camera.settingValues[2007], 0);
     });

@@ -6,6 +6,7 @@ import '../camera/camera_api.dart';
 import '../camera/models.dart';
 import '../camera/platform_transport.dart';
 import '../camera/transport.dart';
+import 'auto_connect.dart';
 import 'credentials.dart';
 
 final transportProvider = Provider<CameraTransport>(
@@ -216,8 +217,11 @@ class SessionController extends Notifier<SessionState> {
   Future<void> _loadSaved() async {
     final saved = await ref.read(credentialStoreProvider).load();
     if (!ref.mounted) return;
+    final auto = await ref.read(autoConnectProvider.notifier).ready;
+    if (!ref.mounted) return;
     state = state.copyWith(loaded: true, saved: saved);
-    if (saved != null && state.link == LinkState.disconnected) {
+    // With auto-connect off, the home page offers a one-tap Connect instead.
+    if (auto && saved != null && state.link == LinkState.disconnected) {
       await connect(saved.ssid, saved.password);
     }
   }

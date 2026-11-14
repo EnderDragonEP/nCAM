@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../camera/models.dart';
+import '../state/auto_connect.dart';
 import '../state/session.dart';
 import '../state/settings.dart';
 import 'appearance_tiles.dart';
@@ -195,6 +196,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           header('App'),
           const AppearanceTiles(),
+          SwitchListTile(
+            secondary: const Icon(Icons.wifi_find),
+            title: const Text('Connect on start-up'),
+            subtitle: const Text(
+              'Join the saved camera as soon as the app opens.',
+            ),
+            value: ref.watch(autoConnectProvider),
+            onChanged: ref.read(autoConnectProvider.notifier).set,
+          ),
           if (!connected) ...[
             header('Camera'),
             const ListTile(
