@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../state/dock_side.dart';
+import '../state/pip.dart';
 import '../state/session.dart';
 import '../state/wallpaper.dart';
 import 'home_screen.dart';
@@ -80,7 +81,10 @@ class _AppShellState extends ConsumerState<AppShell> {
       child: Scaffold(
         extendBody: true,
         body: page,
-        bottomNavigationBar: const Dock(),
+        // Inside the floating window only the picture is shown.
+        bottomNavigationBar: ref.watch(pipProvider.select((s) => s.inPip))
+            ? null
+            : const Dock(),
       ),
     );
   }

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../camera/models.dart';
 import '../state/auto_connect.dart';
 import '../state/dock_side.dart';
+import '../state/pip.dart';
 import '../state/session.dart';
 import '../state/settings.dart';
 import 'appearance_tiles.dart';
@@ -205,6 +206,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
             value: ref.watch(autoConnectProvider),
             onChanged: ref.read(autoConnectProvider.notifier).set,
+          ),
+          SwitchListTile(
+            secondary: const Icon(Icons.picture_in_picture_alt_outlined),
+            title: const Text('Auto picture-in-picture'),
+            subtitle: const Text('Float video when you leave the app.'),
+            value: ref.watch(pipAutoEnterProvider),
+            onChanged: ref.read(pipAutoEnterProvider.notifier).set,
           ),
           ListTile(
             leading: const Icon(Icons.fiber_manual_record_outlined),

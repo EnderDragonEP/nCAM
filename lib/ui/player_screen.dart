@@ -5,6 +5,7 @@ import 'package:video_player/video_player.dart';
 import '../camera/models.dart';
 import '../camera/recordings.dart';
 import '../state/downloads.dart';
+import '../state/pip.dart';
 import '../state/session.dart';
 import 'format.dart';
 
@@ -39,9 +40,41 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _open(_lens);
   }
 
+  /// Play/pause changes the window's buttons and whether it may open by itself.
+  bool _wasPlaying = false;
+
+  void _onTick() {
+    final playing = _controller?.value.isPlaying ?? false;
+    if (playing != _wasPlaying && mounted) {
+      setState(() => _wasPlaying = playing);
+    }
+  }
+
+  void _onPipAction(String action) {
+    final c = _controller;
+    if (c == null) return;
+    final v = c.value;
+    switch (action) {
+      case 'play':
+        if (v.duration > Duration.zero && v.position >= v.duration) {
+          c.seekTo(Duration.zero);
+        }
+        c.play();
+      case 'pause':
+        c.pause();
+      case 'rewind' || 'forward':
+        var target =
+            v.position + Duration(seconds: action == 'rewind' ? -10 : 10);
+        if (target < Duration.zero) target = Duration.zero;
+        if (target > v.duration) target = v.duration;
+        c.seekTo(target);
+    }
+  }
+
   @override
   void dispose() {
     _generation++;
+    _controller?.removeListener(_onTick);
     _controller?.dispose();
     ref.read(transportProvider).keepScreenOn(false).ignore();
     super.dispose();
@@ -75,6 +108,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         await next.dispose();
         return;
       }
+      old?.removeListener(_onTick);
+      next.addListener(_onTick);
       setState(() {
         _controller = next;
         _loading = false;
@@ -104,64 +139,88 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final controller = _controller;
     final time = r.time;
 
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        title: Text(time == null ? r.files.first.name : formatDateTime(time)),
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: Center(
-                child: _error != null
-                    ? Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Text(
-                          _error!,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: Colors.white),
-                        ),
-                      )
-                    : controller == null
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          AspectRatio(
-                            aspectRatio: controller.value.aspectRatio,
-                            child: VideoPlayer(controller),
-                          ),
-                          if (_loading)
-                            const CircularProgressIndicator(
-                              color: Colors.white,
-                            ),
-                        ],
-                      ),
-              ),
-            ),
-            if (controller != null) _Controls(controller: controller),
-            if (lenses.length > 1)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Theme(
-                  data: ThemeData.dark(useMaterial3: true),
-                  child: SegmentedButton<Lens>(
-                    segments: const [
-                      ButtonSegment(value: Lens.front, label: Text('Front')),
-                      ButtonSegment(value: Lens.rear, label: Text('Rear')),
-                    ],
-                    selected: {_lens},
-                    showSelectedIcon: false,
-                    onSelectionChanged: (s) {
-                      if (s.first != _lens) _open(s.first);
-                    },
-                  ),
+    final playing = controller?.value.isPlaying ?? false;
+    return PipHost(
+      // Like YouTube: only a clip that is playing goes into the window by itself.
+      autoEnter: playing,
+      aspectRatio: controller?.value.aspectRatio ?? 16 / 9,
+      actions: controller == null
+          ? const []
+          : ['rewind', playing ? 'pause' : 'play', 'forward'],
+      onAction: _onPipAction,
+      // Closing the floating window stops the clip.
+      onClosed: () => _controller?.pause(),
+      pipChild: ColoredBox(
+        color: Colors.black,
+        child: controller == null
+            ? const SizedBox.expand()
+            : Center(
+                child: AspectRatio(
+                  aspectRatio: controller.value.aspectRatio,
+                  child: VideoPlayer(controller),
                 ),
               ),
-          ],
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        appBar: AppBar(
+          backgroundColor: Colors.black,
+          foregroundColor: Colors.white,
+          title: Text(time == null ? r.files.first.name : formatDateTime(time)),
+          actions: const [PipButton(color: Colors.white)],
+        ),
+        body: SafeArea(
+          child: Column(
+            children: [
+              Expanded(
+                child: Center(
+                  child: _error != null
+                      ? Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Text(
+                            _error!,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                        )
+                      : controller == null
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            AspectRatio(
+                              aspectRatio: controller.value.aspectRatio,
+                              child: VideoPlayer(controller),
+                            ),
+                            if (_loading)
+                              const CircularProgressIndicator(
+                                color: Colors.white,
+                              ),
+                          ],
+                        ),
+                ),
+              ),
+              if (controller != null) _Controls(controller: controller),
+              if (lenses.length > 1)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Theme(
+                    data: ThemeData.dark(useMaterial3: true),
+                    child: SegmentedButton<Lens>(
+                      segments: const [
+                        ButtonSegment(value: Lens.front, label: Text('Front')),
+                        ButtonSegment(value: Lens.rear, label: Text('Rear')),
+                      ],
+                      selected: {_lens},
+                      showSelectedIcon: false,
+                      onSelectionChanged: (s) {
+                        if (s.first != _lens) _open(s.first);
+                      },
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );

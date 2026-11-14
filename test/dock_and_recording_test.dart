@@ -111,6 +111,11 @@ void main() {
       await tester.tap(find.byTooltip('Settings'));
       await tester.pumpAndSettle();
       expect(find.text('Colours'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('Not connected'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(find.text('Not connected'), findsOneWidget);
       expect(find.text('Format SD card'), findsNothing);
     });
@@ -158,9 +163,23 @@ void main() {
     await open(tester);
     await tester.tap(find.byTooltip('Settings'));
     await tester.pumpAndSettle();
-    // Scroll the option clear of the floating dock before tapping it.
-    await tester.drag(find.byType(Scrollable).first, const Offset(0, -200));
+    // Scroll the option into view and clear of the floating dock before tapping.
+    await tester.scrollUntilVisible(
+      find.text('Left'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.pumpAndSettle();
+    // Lift it just above the dock if it is still underneath.
+    final dockTop = tester.getRect(find.byType(RecordButton)).top;
+    final optionBottom = tester.getRect(find.text('Left')).bottom;
+    if (optionBottom > dockTop - 24) {
+      await tester.drag(
+        find.byType(Scrollable).first,
+        Offset(0, dockTop - 24 - optionBottom),
+      );
+      await tester.pumpAndSettle();
+    }
     await tester.tap(find.text('Left'));
     await tester.pumpAndSettle();
     expect(

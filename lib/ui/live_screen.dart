@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../state/live.dart';
+import '../state/pip.dart';
 
 class LiveScreen extends ConsumerWidget {
   const LiveScreen({super.key, this.onBack});
@@ -16,116 +17,167 @@ class LiveScreen extends ConsumerWidget {
     final frame = live.frame;
     final view = live.viewIndex;
 
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
+    return PipHost(
+      // Closing the floating window ends the live stream.
+      onClosed: onBack ?? () => Navigator.maybePop(context),
+      pipChild: _LivePip(live: live),
+      child: Scaffold(
         backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        leading: onBack == null ? null : BackButton(onPressed: onBack),
-        title: const Text('Live view'),
-        actions: [
-          if (live.status == LiveStatus.playing)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.only(right: 16),
-                child: Text(
-                  '${live.framesPerSecond} fps',
-                  style: const TextStyle(color: Colors.white70),
-                ),
-              ),
-            ),
-        ],
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  if (frame != null)
-                    Image.memory(
-                      frame,
-                      fit: BoxFit.contain,
-                      // Keep showing the previous picture until the next one is decoded.
-                      gaplessPlayback: true,
-                      errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                    ),
-                  if (live.status == LiveStatus.connecting)
-                    Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const CircularProgressIndicator(color: Colors.white),
-                          const SizedBox(height: 12),
-                          Text(
-                            live.message ?? 'Starting live view…',
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                        ],
-                      ),
-                    ),
-                  if (live.status == LiveStatus.failed)
-                    Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              live.message ?? 'Live view stopped.',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(color: Colors.white),
-                            ),
-                            const SizedBox(height: 12),
-                            FilledButton(
-                              onPressed: controller.retry,
-                              child: const Text('Try again'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            if (view != null)
-              Padding(
-                padding: const EdgeInsets.all(12),
-                child: Theme(
-                  data: ThemeData.dark(useMaterial3: true),
-                  child: SegmentedButton<int>(
-                    segments: [
-                      for (final i in {0, 1, 2, view}.toList()..sort())
-                        ButtonSegment(
-                          value: i,
-                          // Checked on the real camera.
-                          label: Text(switch (i) {
-                            0 => 'Front',
-                            1 => 'Rear',
-                            2 => 'Both',
-                            _ => 'View ${i + 1}',
-                          }),
-                        ),
-                    ],
-                    selected: {view},
-                    showSelectedIcon: false,
-                    onSelectionChanged: (s) async {
-                      final messenger = ScaffoldMessenger.of(context);
-                      final error = await controller.setView(s.first);
-                      if (error != null) {
-                        messenger.showSnackBar(
-                          SnackBar(
-                            content: Text('Could not switch view: $error'),
-                          ),
-                        );
-                      }
-                    },
+        appBar: AppBar(
+          backgroundColor: Colors.black,
+          foregroundColor: Colors.white,
+          leading: onBack == null ? null : BackButton(onPressed: onBack),
+          title: const Text('Live view'),
+          actions: [
+            const PipButton(color: Colors.white),
+            if (live.status == LiveStatus.playing)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 16),
+                  child: Text(
+                    '${live.framesPerSecond} fps',
+                    style: const TextStyle(color: Colors.white70),
                   ),
                 ),
               ),
           ],
         ),
+        body: SafeArea(
+          child: Column(
+            children: [
+              Expanded(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (frame != null)
+                      Image.memory(
+                        frame,
+                        fit: BoxFit.contain,
+                        // Keep showing the previous picture until the next one is decoded.
+                        gaplessPlayback: true,
+                        errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                      ),
+                    if (live.status == LiveStatus.connecting)
+                      Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const CircularProgressIndicator(
+                              color: Colors.white,
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              live.message ?? 'Starting live view…',
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                          ],
+                        ),
+                      ),
+                    if (live.status == LiveStatus.failed)
+                      Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                live.message ?? 'Live view stopped.',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(color: Colors.white),
+                              ),
+                              const SizedBox(height: 12),
+                              FilledButton(
+                                onPressed: controller.retry,
+                                child: const Text('Try again'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              if (view != null)
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Theme(
+                    data: ThemeData.dark(useMaterial3: true),
+                    child: SegmentedButton<int>(
+                      segments: [
+                        for (final i in {0, 1, 2, view}.toList()..sort())
+                          ButtonSegment(
+                            value: i,
+                            // Checked on the real camera.
+                            label: Text(switch (i) {
+                              0 => 'Front',
+                              1 => 'Rear',
+                              2 => 'Both',
+                              _ => 'View ${i + 1}',
+                            }),
+                          ),
+                      ],
+                      selected: {view},
+                      showSelectedIcon: false,
+                      onSelectionChanged: (s) async {
+                        final messenger = ScaffoldMessenger.of(context);
+                        final error = await controller.setView(s.first);
+                        if (error != null) {
+                          messenger.showSnackBar(
+                            SnackBar(
+                              content: Text('Could not switch view: $error'),
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Live view inside the floating window: just the picture.
+class _LivePip extends StatelessWidget {
+  const _LivePip({required this.live});
+  final LiveState live;
+
+  @override
+  Widget build(BuildContext context) {
+    final frame = live.frame;
+    return ColoredBox(
+      color: Colors.black,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (frame != null)
+            Image.memory(
+              frame,
+              fit: BoxFit.contain,
+              gaplessPlayback: true,
+              errorBuilder: (_, _, _) => const SizedBox.shrink(),
+            ),
+          if (live.status == LiveStatus.connecting)
+            const Center(
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          // Stopped: say so instead of spinning forever. Tap the window to
+          // expand it and use Try again.
+          if (live.status == LiveStatus.failed)
+            const Center(
+              child: Icon(Icons.videocam_off_outlined, color: Colors.white70),
+            ),
+        ],
       ),
     );
   }
