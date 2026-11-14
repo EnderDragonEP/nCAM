@@ -50,11 +50,17 @@ void main() {
     testWidgets('opens each page and comes back home', (tester) async {
       await open(tester);
       expect(find.text('Connected to NoodleCam'), findsOneWidget);
+      // Settings is on the home page's top bar, not in the dock.
       for (final label in ['Live', 'Recordings', 'Saved', 'Settings']) {
-        expect(find.text(label), findsOneWidget, reason: label);
+        expect(find.byTooltip(label), findsOneWidget, reason: label);
       }
+      // The record button sits to the left of the page icons.
+      expect(
+        tester.getCenter(find.byType(RecordButton)).dx,
+        lessThan(tester.getCenter(find.byTooltip('Live')).dx),
+      );
 
-      await tester.tap(find.text('Live'));
+      await tester.tap(find.byTooltip('Live'));
       await tester.pumpAndSettle();
       expect(find.text('Live view'), findsOneWidget);
       expect(camera.liveOpened, isNotEmpty);
@@ -67,11 +73,20 @@ void main() {
       // Leaving the live page closes the stream.
       expect(camera.screenKeptOn, isFalse);
 
-      await tester.tap(find.text('Settings'));
+      await tester.tap(find.byTooltip('Settings'));
       await tester.pumpAndSettle();
       expect(find.text('Colours'), findsOneWidget);
+      // The dock stays, and its Settings-free pill has nothing highlighted.
+      expect(find.byType(RecordButton), findsOneWidget);
+      expect(find.byTooltip('Settings'), findsNothing);
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+      expect(find.text('Connected to NoodleCam'), findsOneWidget);
+
       // Tapping the open page again goes home.
-      await tester.tap(find.text('Settings').last);
+      await tester.tap(find.byTooltip('Saved'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Saved'));
       await tester.pumpAndSettle();
       expect(find.text('Connected to NoodleCam'), findsOneWidget);
     });
@@ -81,16 +96,18 @@ void main() {
     ) async {
       camera.failConnect = true;
       await open(tester);
-      await tester.tap(find.text('Live'));
+      await tester.tap(find.byTooltip('Live'));
       await tester.pumpAndSettle();
       expect(find.text('Live view'), findsNothing);
 
-      await tester.tap(find.text('Saved'));
+      await tester.tap(find.byTooltip('Saved'));
       await tester.pumpAndSettle();
       expect(find.text('Saved on this phone'), findsOneWidget);
 
       // App settings (colours) work without the camera.
-      await tester.tap(find.text('Settings'));
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Settings'));
       await tester.pumpAndSettle();
       expect(find.text('Colours'), findsOneWidget);
       expect(find.text('Not connected'), findsOneWidget);
@@ -98,10 +115,46 @@ void main() {
     });
   });
 
+  testWidgets('the end of a page can be scrolled clear of the floating dock', (
+    tester,
+  ) async {
+    await open(tester);
+    final list = find.byType(Scrollable).first;
+    await tester.drag(list, const Offset(0, -3000));
+    await tester.pumpAndSettle();
+    final lastCard = tester.getRect(find.byType(Card).last);
+    final dockPill = tester.getRect(find.byTooltip('Live'));
+    expect(lastCard.bottom, lessThan(dockPill.top));
+    // The page itself still runs behind the dock (it floats over the content).
+    final page = tester.getRect(find.byType(Scrollable).first);
+    expect(page.bottom, greaterThan(dockPill.top));
+  });
+
+  testWidgets('the highlight never slides past the end of the pill', (
+    tester,
+  ) async {
+    await open(tester);
+    final bubble = find.byType(AnimatedPositioned);
+    final track = find.ancestor(of: bubble, matching: find.byType(Stack)).first;
+
+    // From the first page to the last and back: the longest moves.
+    for (final label in ['Live', 'Saved', 'Live']) {
+      await tester.tap(find.byTooltip(label));
+      for (var i = 0; i < 30; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        final b = tester.getRect(bubble);
+        final t = tester.getRect(track);
+        expect(b.left, greaterThanOrEqualTo(t.left - 0.01), reason: label);
+        expect(b.right, lessThanOrEqualTo(t.right + 0.01), reason: label);
+      }
+      await tester.pumpAndSettle();
+    }
+  });
+
   group('record button', () {
     testWidgets('a short tap while recording only explains', (tester) async {
       await open(tester);
-      expect(find.text('Hold to stop'), findsOneWidget);
+      expect(find.byIcon(Icons.stop_rounded), findsOneWidget);
       await tester.tap(find.byType(RecordButton));
       await tester.pumpAndSettle();
       expect(find.text('Hold the button to stop recording.'), findsOneWidget);
@@ -131,7 +184,7 @@ void main() {
       expect(commands('cmd=2001&par=1'), 0);
       expect(camera.recordingSeconds, 0);
       expect(find.text('Recording stopped.'), findsOneWidget);
-      expect(find.text('Record'), findsOneWidget);
+      expect(find.byIcon(Icons.stop_rounded), findsNothing);
     });
 
     testWidgets('a tap starts recording when stopped', (tester) async {
@@ -140,12 +193,12 @@ void main() {
         f.recording = false;
       }
       await open(tester);
-      expect(find.text('Record'), findsOneWidget);
+      expect(find.byIcon(Icons.stop_rounded), findsNothing);
       await tester.tap(find.byType(RecordButton));
       await tester.pumpAndSettle();
       expect(commands('cmd=2001&par=1'), 1);
       expect(find.text('Recording started.'), findsOneWidget);
-      expect(find.text('Hold to stop'), findsOneWidget);
+      expect(find.byIcon(Icons.stop_rounded), findsOneWidget);
     });
   });
 

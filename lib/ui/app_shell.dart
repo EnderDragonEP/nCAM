@@ -75,13 +75,50 @@ class _AppShellState extends ConsumerState<AppShell> {
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) home();
       },
-      child: Scaffold(body: page, bottomNavigationBar: const Dock()),
+      // extendBody: pages run behind the floating dock instead of stopping above it.
+      child: Scaffold(
+        extendBody: true,
+        body: page,
+        bottomNavigationBar: const Dock(),
+      ),
     );
   }
 }
 
+/// One page in the floating dock.
+class _Destination {
+  const _Destination(this.tab, this.icon, this.selectedIcon, this.label);
+  final ShellTab tab;
+  final IconData icon;
+  final IconData selectedIcon;
+  final String label;
+}
+
+const _destinations = [
+  _Destination(ShellTab.live, Icons.live_tv_outlined, Icons.live_tv, 'Live'),
+  _Destination(
+    ShellTab.recordings,
+    Icons.video_library_outlined,
+    Icons.video_library,
+    'Recordings',
+  ),
+  _Destination(
+    ShellTab.saved,
+    Icons.smartphone_outlined,
+    Icons.smartphone,
+    'Saved',
+  ),
+];
+
+/// Floating navigation: the record button on the left, and a pill of page icons with
+/// a highlight that slides to the open page. Settings opens from the home page. Pages scroll behind it over
+/// a soft fade.
 class Dock extends ConsumerWidget {
   const Dock({super.key});
+
+  static const itemWidth = 56.0;
+  static const itemHeight = 48.0;
+  static const itemGap = 2.0;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -89,46 +126,97 @@ class Dock extends ConsumerWidget {
     final session = ref.watch(sessionProvider);
     final ready = session.connected && session.status != null;
     final scheme = Theme.of(context).colorScheme;
+    final background = Theme.of(context).scaffoldBackgroundColor;
 
-    Widget item(ShellTab target, IconData icon, String label, bool enabled) =>
-        Expanded(
-          child: _DockItem(
-            icon: icon,
-            label: label,
-            selected: tab == target,
-            enabled: enabled,
-            // Tapping the open page again goes back home.
-            onTap: () => ref
-                .read(shellTabProvider.notifier)
-                .show(tab == target ? null : target),
+    bool enabled(ShellTab t) => t != ShellTab.live || ready;
+    final selected = _destinations.indexWhere((d) => d.tab == tab);
+
+    final pill = DecoratedBox(
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(100),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x33000000),
+            blurRadius: 12,
+            offset: Offset(0, 4),
           ),
-        );
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(4),
+        child: SizedBox(
+          width:
+              _destinations.length * itemWidth +
+              (_destinations.length - 1) * itemGap,
+          height: itemHeight,
+          child: Stack(
+            children: [
+              // The highlight behind the open page; hidden on the home page.
+              AnimatedPositioned(
+                // Material 3's emphasized easing: lively, but it never overshoots,
+                // so the highlight cannot slide past the end of the pill and get
+                // cut off (easeOutBack did).
+                duration: const Duration(milliseconds: 400),
+                curve: Curves.easeInOutCubicEmphasized,
+                left: (selected < 0 ? 0 : selected) * (itemWidth + itemGap),
+                top: 0,
+                width: itemWidth,
+                height: itemHeight,
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 200),
+                  opacity: selected < 0 ? 0 : 1,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: scheme.secondaryContainer,
+                      borderRadius: BorderRadius.circular(100),
+                    ),
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  for (var i = 0; i < _destinations.length; i++) ...[
+                    if (i > 0) const SizedBox(width: itemGap),
+                    _DockItem(
+                      destination: _destinations[i],
+                      selected: i == selected,
+                      enabled: enabled(_destinations[i].tab),
+                      // Tapping the open page again goes back home.
+                      onTap: () => ref
+                          .read(shellTabProvider.notifier)
+                          .show(i == selected ? null : _destinations[i].tab),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
 
-    return Material(
-      color: scheme.surfaceContainer,
-      elevation: 8,
+    return DecoratedBox(
+      // Pages scroll behind the dock; this fade keeps it readable over them.
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [background.withValues(alpha: 0), background],
+        ),
+      ),
       child: SafeArea(
         top: false,
-        // Sized by its contents, so large system text never overflows it.
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              item(ShellTab.live, Icons.live_tv_outlined, 'Live', ready),
-              item(
-                ShellTab.recordings,
-                Icons.video_library_outlined,
-                'Recordings',
-                true,
-              ),
-              const Expanded(child: RecordButton()),
-              item(ShellTab.saved, Icons.smartphone, 'Saved', true),
-              item(
-                ShellTab.settings,
-                Icons.settings_outlined,
-                'Settings',
-                true, // app settings work without the camera
+              const RecordButton(),
+              const SizedBox(width: 12),
+              // Shrinks only if the screen is very narrow or the text is huge.
+              Flexible(
+                child: FittedBox(fit: BoxFit.scaleDown, child: pill),
               ),
             ],
           ),
@@ -140,15 +228,13 @@ class Dock extends ConsumerWidget {
 
 class _DockItem extends StatelessWidget {
   const _DockItem({
-    required this.icon,
-    required this.label,
+    required this.destination,
     required this.selected,
     required this.enabled,
     required this.onTap,
   });
 
-  final IconData icon;
-  final String label;
+  final _Destination destination;
   final bool selected;
   final bool enabled;
   final VoidCallback onTap;
@@ -157,44 +243,29 @@ class _DockItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final color = !enabled
-        ? scheme.outline
+        ? scheme.outline.withValues(alpha: 0.6)
         : selected
-        ? scheme.primary
+        ? scheme.onSecondaryContainer
         : scheme.onSurfaceVariant;
-    return Semantics(
-      button: true,
-      selected: selected,
-      enabled: enabled,
-      label: label,
-      excludeSemantics: true,
-      child: InkWell(
-        onTap: enabled ? onTap : null,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: selected ? scheme.secondaryContainer : null,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Icon(icon, size: 28, color: color),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.fade,
-                softWrap: false,
-                style: Theme.of(context).textTheme.labelMedium
-                    ?.copyWith(color: color),
-              ),
-            ],
+    return Tooltip(
+      message: destination.label,
+      child: Semantics(
+        button: true,
+        selected: selected,
+        enabled: enabled,
+        label: destination.label,
+        excludeSemantics: true,
+        child: InkWell(
+          onTap: enabled ? onTap : null,
+          customBorder: const StadiumBorder(),
+          child: SizedBox(
+            width: Dock.itemWidth,
+            height: Dock.itemHeight,
+            child: Icon(
+              selected ? destination.selectedIcon : destination.icon,
+              size: 24,
+              color: color,
+            ),
           ),
         ),
       ),

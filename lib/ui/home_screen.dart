@@ -33,6 +33,13 @@ class HomeScreen extends ConsumerWidget {
             ),
             icon: const Icon(Icons.receipt_long_outlined),
           ),
+          // Opens inside the app frame, so the dock stays and Back returns here.
+          IconButton(
+            tooltip: 'Settings',
+            onPressed: () =>
+                ref.read(shellTabProvider.notifier).show(ShellTab.settings),
+            icon: const Icon(Icons.settings_outlined),
+          ),
           if (s.connected)
             IconButton(
               tooltip: 'Refresh',
@@ -50,7 +57,13 @@ class HomeScreen extends ConsumerWidget {
       body: !s.loaded
           ? const SizedBox.shrink()
           : ListView(
-              padding: const EdgeInsets.all(16),
+              // The floating dock sits over the bottom of the page.
+              padding: EdgeInsets.fromLTRB(
+                16,
+                16,
+                16,
+                16 + MediaQuery.paddingOf(context).bottom,
+              ),
               children: [
                 _LinkCard(state: s),
                 const RecordingPausedBanner(margin: EdgeInsets.only(top: 12)),

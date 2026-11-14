@@ -14,7 +14,7 @@ const holdToStop = Duration(milliseconds: 1500);
 /// Not recording: a tap starts recording. Recording: a tap only explains; the button has
 /// to be held while a ring fills, so a mis-tap on the road never stops the camera.
 class RecordButton extends ConsumerStatefulWidget {
-  const RecordButton({super.key, this.size = 64});
+  const RecordButton({super.key, this.size = 56});
   final double size;
 
   @override
@@ -86,21 +86,25 @@ class _RecordButtonState extends ConsumerState<RecordButton>
     final scheme = Theme.of(context).colorScheme;
     final size = widget.size;
 
+    // No visible label in the floating dock: the state is in the icon and colour, and
+    // spelled out for screen readers here.
     final String label;
     if (!available) {
-      label = fastPhase != FastPhase.idle ? 'Paused' : 'Record';
+      label = fastPhase != FastPhase.idle
+          ? 'Recording paused for fast download.'
+          : 'Record. Not available until the camera is connected.';
     } else if (_working) {
-      label = recording ? 'Stopping…' : 'Starting…';
+      label = recording ? 'Stopping recording.' : 'Starting recording.';
     } else {
-      label = recording ? 'Hold to stop' : 'Record';
+      label = recording
+          ? 'Recording. Press and hold to stop.'
+          : 'Not recording. Tap to start.';
     }
 
     return Semantics(
       button: true,
       enabled: enabled,
-      label: recording
-          ? 'Recording. Press and hold to stop.'
-          : 'Not recording. Tap to start.',
+      label: label,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTapDown: !enabled
@@ -133,75 +137,73 @@ class _RecordButtonState extends ConsumerState<RecordButton>
           if (_pressWhileRecording == true) _hold.reverse();
           _pressWhileRecording = null;
         },
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: size,
-              height: size,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Container(
-                    width: size,
-                    height: size,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: !available
-                          ? scheme.surfaceContainerHighest
-                          : recording
-                          ? Colors.red
-                          : scheme.surfaceContainerHigh,
-                      border: Border.all(
-                        color: available ? Colors.red : scheme.outline,
-                        width: 3,
-                      ),
+        child: SizedBox(
+          width: size,
+          height: size,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Container(
+                width: size,
+                height: size,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: !available
+                      ? scheme.surfaceContainerHighest
+                      : recording
+                      ? Colors.red
+                      : scheme.surfaceContainer,
+                  border: Border.all(
+                    color: available ? Colors.red : scheme.outline,
+                    width: 3,
+                  ),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x33000000),
+                      blurRadius: 12,
+                      offset: Offset(0, 4),
                     ),
-                    child: _working
-                        ? Padding(
-                            padding: EdgeInsets.all(size * 0.3),
-                            child: CircularProgressIndicator(
-                              strokeWidth: 3,
-                              color: recording ? Colors.white : Colors.red,
-                            ),
-                          )
-                        : Icon(
-                            recording ? Icons.stop_rounded : Icons.circle,
-                            size: recording ? size * 0.5 : size * 0.42,
-                            color: !available
-                                ? scheme.outline
-                                : recording
-                                ? Colors.white
-                                : Colors.red,
-                          ),
-                  ),
-                  AnimatedBuilder(
-                    animation: _hold,
-                    builder: (context, _) => _hold.value == 0
-                        ? const SizedBox.shrink()
-                        : SizedBox(
-                            width: size + 8,
-                            height: size + 8,
-                            child: CircularProgressIndicator(
-                              value: _hold.value,
-                              strokeWidth: 5,
-                              color: scheme.onSurface,
-                            ),
-                          ),
-                  ),
-                ],
+                  ],
+                ),
+                child: _working
+                    ? Padding(
+                        padding: EdgeInsets.all(size * 0.3),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 3,
+                          color: recording ? Colors.white : Colors.red,
+                        ),
+                      )
+                    : Icon(
+                        !available && fastPhase != FastPhase.idle
+                            ? Icons.pause_rounded
+                            : recording
+                            ? Icons.stop_rounded
+                            : Icons.circle,
+                        size: recording ? size * 0.5 : size * 0.42,
+                        color: !available
+                            ? scheme.outline
+                            : recording
+                            ? Colors.white
+                            : Colors.red,
+                      ),
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              maxLines: 1,
-              softWrap: false,
-              overflow: TextOverflow.fade,
-              style: Theme.of(context).textTheme.labelMedium
-                  ?.copyWith(color: available ? null : scheme.outline),
-            ),
-          ],
+              // The ring that fills while the button is held to stop.
+              AnimatedBuilder(
+                animation: _hold,
+                builder: (context, _) => _hold.value == 0
+                    ? const SizedBox.shrink()
+                    : SizedBox(
+                        width: size,
+                        height: size,
+                        child: CircularProgressIndicator(
+                          value: _hold.value,
+                          strokeWidth: 5,
+                          color: recording ? Colors.white : scheme.onSurface,
+                        ),
+                      ),
+              ),
+            ],
+          ),
         ),
       ),
     );
