@@ -7,6 +7,7 @@ import '../state/dock_side.dart';
 import '../state/pip.dart';
 import '../state/session.dart';
 import '../state/settings.dart';
+import '../state/sync_on_connect.dart';
 import 'appearance_tiles.dart';
 import 'format.dart';
 
@@ -206,6 +207,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
             value: ref.watch(autoConnectProvider),
             onChanged: ref.read(autoConnectProvider.notifier).set,
+          ),
+          SwitchListTile(
+            secondary: const Icon(Icons.schedule),
+            title: const Text('Sync time on connect'),
+            subtitle: const Text("Set the camera clock to the phone's."),
+            value: ref.watch(syncOnConnectProvider),
+            onChanged: ref.read(syncOnConnectProvider.notifier).set,
           ),
           SwitchListTile(
             secondary: const Icon(Icons.picture_in_picture_alt_outlined),

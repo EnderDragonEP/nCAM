@@ -7,6 +7,7 @@ import '../camera/models.dart';
 import '../camera/platform_transport.dart';
 import '../camera/transport.dart';
 import 'auto_connect.dart';
+import 'sync_on_connect.dart';
 import 'credentials.dart';
 
 final transportProvider = Provider<CameraTransport>(
@@ -313,7 +314,16 @@ class SessionController extends Notifier<SessionState> {
       final files = await _listFiles();
       if (stale()) return;
       state = state.copyWith(files: files);
-      await _sync(status: status, before: files, stale: stale);
+      final syncOnConnect = await ref
+          .read(syncOnConnectProvider.notifier)
+          .ready;
+      if (stale()) return;
+      if (syncOnConnect) {
+        await _sync(status: status, before: files, stale: stale);
+      } else {
+        // Clock left alone; still spot the clip being recorded.
+        await _probeWriting(status: status, before: files, stale: stale);
+      }
     } catch (e) {
       if (stale()) return;
       state = state.copyWith(error: 'Camera error: $e');

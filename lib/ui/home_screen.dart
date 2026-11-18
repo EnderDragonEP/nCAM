@@ -8,6 +8,7 @@ import '../camera/transport.dart';
 import '../downloads/downloader.dart';
 import '../state/downloads.dart';
 import '../state/session.dart';
+import '../state/sync_on_connect.dart';
 import 'diagnostic_screen.dart';
 import 'fast_mode.dart';
 import 'format.dart';
@@ -472,6 +473,9 @@ class _TimeCard extends ConsumerWidget {
     final lines = <String>[];
     if (sync == null) {
       title = 'Camera clock not synced yet';
+      if (!ref.watch(syncOnConnectProvider)) {
+        lines.add('Sync on connect is off in Settings.');
+      }
     } else if (!sync.ok) {
       title = 'Clock sync failed';
       lines.add(sync.error!);
