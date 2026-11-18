@@ -258,6 +258,33 @@ void main() {
       expect(find.byIcon(Icons.stop_rounded), findsNothing);
     });
 
+    testWidgets('the button grows above the thumb while it is held', (
+      tester,
+    ) async {
+      await open(tester);
+      final enlarged = find.byKey(const ValueKey('record-button-enlarged'));
+      final atRest = tester.getRect(find.byType(RecordButton));
+      expect(enlarged, findsNothing);
+
+      final gesture = await tester.startGesture(atRest.center);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      final big = tester.getRect(enlarged);
+      expect(big.width, closeTo(atRest.width * pressedScale, 0.5));
+      // Grows upwards from where it sits, and stays on the screen.
+      expect(big.bottom, closeTo(atRest.bottom, 0.5));
+      expect(big.left, greaterThanOrEqualTo(0));
+      expect(big.right, lessThanOrEqualTo(1080 / 2.6));
+      expect(commands('cmd=2001'), 0);
+
+      // Let go early: back to normal size, recording carries on.
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(enlarged, findsNothing);
+      expect(find.text('Hold the button to stop recording.'), findsOneWidget);
+      expect(commands('cmd=2001'), 0);
+    });
+
     testWidgets('a tap starts recording when stopped', (tester) async {
       camera.recordingSeconds = 0;
       for (final f in camera.files) {
