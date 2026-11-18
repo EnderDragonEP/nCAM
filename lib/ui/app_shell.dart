@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/l10n.dart';
 import '../state/dock_side.dart';
 import '../state/pip.dart';
 import '../state/session.dart';
@@ -92,27 +93,27 @@ class _AppShellState extends ConsumerState<AppShell> {
 
 /// One page in the floating dock.
 class _Destination {
-  const _Destination(this.tab, this.icon, this.selectedIcon, this.label);
+  const _Destination(this.tab, this.icon, this.selectedIcon);
   final ShellTab tab;
   final IconData icon;
   final IconData selectedIcon;
-  final String label;
+
+  String label(AppLocalizations l) => switch (tab) {
+    ShellTab.live => l.tabLive,
+    ShellTab.recordings => l.tabRecordings,
+    ShellTab.saved => l.tabSaved,
+    ShellTab.settings => l.settingsTitle,
+  };
 }
 
 const _destinations = [
-  _Destination(ShellTab.live, Icons.live_tv_outlined, Icons.live_tv, 'Live'),
+  _Destination(ShellTab.live, Icons.live_tv_outlined, Icons.live_tv),
   _Destination(
     ShellTab.recordings,
     Icons.video_library_outlined,
     Icons.video_library,
-    'Recordings',
   ),
-  _Destination(
-    ShellTab.saved,
-    Icons.smartphone_outlined,
-    Icons.smartphone,
-    'Saved',
-  ),
+  _Destination(ShellTab.saved, Icons.smartphone_outlined, Icons.smartphone),
 ];
 
 /// Floating navigation: a pill of page icons with a highlight that slides to the open
@@ -260,13 +261,14 @@ class _DockItem extends StatelessWidget {
         : selected
         ? scheme.onSecondaryContainer
         : scheme.onSurfaceVariant;
+    final label = destination.label(context.l10n);
     return Tooltip(
-      message: destination.label,
+      message: label,
       child: Semantics(
         button: true,
         selected: selected,
         enabled: enabled,
-        label: destination.label,
+        label: label,
         excludeSemantics: true,
         child: InkWell(
           onTap: enabled ? onTap : null,

@@ -75,7 +75,7 @@ void main() {
     await tester.pump();
     await tester.pump();
     expect(
-      find.textContaining('Recording is PAUSED while files download'),
+      find.textContaining('Recording PAUSED while files download'),
       findsOneWidget,
     );
     // The queue is in charge of restarting; no manual button while it runs.
@@ -107,7 +107,7 @@ void main() {
     downloader.setFast(
       const FastModeStatus(
         phase: FastPhase.failed,
-        message: 'Recording is still OFF. The app could not restart it.',
+        message: 'the camera did not start recording',
       ),
     );
     await tester.pump();

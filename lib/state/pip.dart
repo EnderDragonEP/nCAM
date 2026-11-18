@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../l10n/l10n.dart';
+
 /// What the page on screen allows for picture-in-picture.
 class PipConfig {
   const PipConfig({
@@ -342,22 +344,16 @@ class PipButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = context.l10n;
     return IconButton(
-      tooltip: 'Picture-in-picture',
+      tooltip: l.pipTooltip,
       color: color,
       icon: const Icon(Icons.picture_in_picture_alt_outlined),
       onPressed: () async {
         final messenger = ScaffoldMessenger.maybeOf(context);
         final ok = await ref.read(pipProvider.notifier).enter();
         if (!ok) {
-          messenger?.showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Picture-in-picture is not available. Check that it is allowed '
-                'for nCAM in Android settings.',
-              ),
-            ),
-          );
+          messenger?.showSnackBar(SnackBar(content: Text(l.pipUnavailable)));
         }
       },
     );

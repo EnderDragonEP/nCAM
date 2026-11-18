@@ -151,6 +151,25 @@ void main() {
     test('a gallery file of a different size is not the same clip', () {
       expect(status(local: {f.name: 99}), FileStatus.onCamera);
     });
+
+    test('a size rounded by the folder page still finds the saved copy', () {
+      final rounded = CameraFile(
+        name: '2026_1110_184312_001A.TS',
+        path: '/Novatek/Movie/2026_1110_184312_001A.TS',
+        size: 242566021, // "231.33 MB"
+        sizeSlack: 10486,
+        writeTime: null,
+      );
+      FileStatus of(int saved) => FileStatusResolver(
+        jobs: const [],
+        local: {rounded.name: saved},
+        writing: const {},
+      ).view(rounded).status;
+      expect(of(242562488), FileStatus.saved);
+      expect(of(200000000), FileStatus.onCamera);
+      // The camera's reply gives the real length; a rounded one would cut it short.
+      expect(downloadRequestFor(rounded).total, 0);
+    });
   });
 
   test('download URL points at the file on the camera', () {
@@ -168,9 +187,15 @@ void main() {
     late FakeCameraTransport camera;
     late FakeDownloader downloader;
 
-    Future<void> open(WidgetTester tester) async {
+    Future<void> open(
+      WidgetTester tester, {
+      bool refuseWhileRecording = false,
+      bool folderPage = true,
+    }) async {
       camera = FakeCameraTransport()
-        ..cameraClock = () => DateTime(2026, 11, 11, 19, 57, 54);
+        ..cameraClock = (() => DateTime(2026, 11, 11, 19, 57, 54))
+        ..refuseListWhileRecording = refuseWhileRecording
+        ..folderPageAvailable = folderPage;
       downloader = FakeDownloader();
       await tester.pumpWidget(
         ProviderScope(
@@ -208,6 +233,34 @@ void main() {
       });
       await open(tester);
       expect(find.text('Near miss'), findsOneWidget);
+    });
+
+    testWidgets('while recording, the list is read from the folder page', (
+      tester,
+    ) async {
+      await open(tester, refuseWhileRecording: true);
+      expect(find.text('19:22:57 · 45 s'), findsOneWidget);
+      expect(find.textContaining('Recording now'), findsOneWidget);
+      expect(find.byIcon(Icons.download), findsNWidgets(4));
+    });
+
+    testWidgets('with no list at all, recording can be paused to read it', (
+      tester,
+    ) async {
+      await open(tester, refuseWhileRecording: true, folderPage: false);
+      expect(
+        find.textContaining("won't send its list while recording"),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Pause recording to read the list'));
+      await tester.pumpAndSettle();
+      expect(find.text('Pause recording?'), findsOneWidget);
+      await tester.tap(find.text('Pause and read'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('List read. Recording again.'), findsOneWidget);
+      expect(find.text('19:22:57 · 45 s'), findsOneWidget);
+      expect(camera.recordingSeconds, greaterThan(0));
     });
 
     testWidgets('search narrows the list by name or by date and time', (

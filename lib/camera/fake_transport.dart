@@ -115,6 +115,14 @@ class FakeCameraTransport implements CameraTransport {
   /// list (seen on the real camera).
   int? fileListStatus;
 
+  /// Whether the web server shows `/Novatek/Movie/` as a folder page (the real camera
+  /// did, with rounded sizes). False answers with its "Page Not found" page.
+  bool folderPageAvailable = true;
+
+  /// Answers the file list with status -3 while recording, as the real camera did
+  /// from 12 Nov on.
+  bool refuseListWhileRecording = false;
+
   /// How many times the app asked to join the camera.
   int connectCount = 0;
 
@@ -208,6 +216,15 @@ class FakeCameraTransport implements CameraTransport {
     final q = Uri.parse(url).queryParameters;
     final cmd = int.tryParse(q['cmd'] ?? '');
     final String body;
+    if (cmd == null &&
+        Uri.parse(url).path == '/Novatek/Movie/' &&
+        folderPageAvailable) {
+      _grow();
+      return HttpReply(200, const {
+        'server': 'hfs/1.00.000',
+        'content-type': 'text/html',
+      }, Uint8List.fromList(utf8.encode(folderPageHtml(files))));
+    }
     switch (cmd) {
       case 3012:
         body = _function(3012, extra: '<String>$firmware</String>');
@@ -273,11 +290,10 @@ class FakeCameraTransport implements CameraTransport {
         body = _function(4003, status: deleteStatus);
       case 3015 when fileListStatus != null:
         body = _function(3015, status: fileListStatus!);
+      case 3015 when refuseListWhileRecording && recordingSeconds > 0:
+        body = _function(3015, status: -3);
       case 3015:
-        for (final f in files.where((f) => f.recording)) {
-          f.size += 2 * 1024 * 1024;
-          f.time = cameraClock();
-        }
+        _grow();
         body = fileListXml(files);
       default:
         // The real server answers unknown URLs with 200 and this page.
@@ -384,6 +400,41 @@ class FakeCameraTransport implements CameraTransport {
   }
 
   /// Same layout as a real 3015 reply.
+  /// The clips being recorded grow and are re-stamped between listings.
+  void _grow() {
+    for (final f in files.where((f) => f.recording)) {
+      f.size += 2 * 1024 * 1024;
+      f.time = cameraClock();
+    }
+  }
+
+  /// The folder page as the real camera's web server writes it.
+  static String folderPageHtml(List<FakeFile> files) {
+    String size(int b) => b >= 1024 * 1024
+        ? '${(b / (1024 * 1024)).toStringAsFixed(2)} MB'
+        : b >= 1024
+        ? '${(b / 1024).toStringAsFixed(2)} KB'
+        : '$b B';
+    final p = StringBuffer(
+      '<html>\n<body>\n<div id=folderlabel>folder</div>\n'
+      '<div id=folder>/Novatek/Movie</div>\n<div id=body>\n<table cellpadding=5>\n'
+      '<th>Filename\n<th>Filesize\n<th>Filetime\n',
+    );
+    for (final f in files) {
+      final href = '/Novatek/Movie/${f.name}';
+      p.write(
+        '<tr><td><a href="$href"><b>${f.name}</b></a><td align=right> ${size(f.size)}'
+        '<td align=right>${_stamp(f.time)}\n'
+        '<td align=right><a href="$href?del=1">Remove</a>\n',
+      );
+    }
+    p.write(
+      '<tr><td colspan="4"><hr size=1 noshade align=top></td></tr></table>\n'
+      '</div>\n</body>\n</html>\n',
+    );
+    return p.toString();
+  }
+
   static String fileListXml(List<FakeFile> files) {
     final b = StringBuffer('<?xml version="1.0" encoding="UTF-8" ?>\n<LIST>\n');
     for (final f in files) {

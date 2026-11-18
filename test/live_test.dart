@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:ncam/l10n/l10n.dart';
 import 'package:ncam/camera/camera_api.dart';
 import 'package:ncam/camera/fake_transport.dart';
 import 'package:ncam/camera/novatek_parsers.dart';
@@ -85,7 +86,7 @@ void main() {
       await tick(60);
       final s = c.read(liveProvider);
       expect(s.status, LiveStatus.failed);
-      expect(s.message, contains('not sending a picture'));
+      expect(s.message!(english), contains("isn't sending a picture"));
       expect(
         camera.requests.where((u) => u.contains('cmd=2015')),
         hasLength(1),
@@ -130,7 +131,7 @@ void main() {
       await tick();
       final waiting = c.read(liveProvider);
       expect(waiting.status, LiveStatus.connecting);
-      expect(waiting.message, contains('connection lost'));
+      expect(waiting.message!(english), contains('Connection lost'));
       expect(waiting.frame, isNotNull);
       // Losing the link is not counted as a stream failure, however long it lasts.
       camera.breakLive('not connected');

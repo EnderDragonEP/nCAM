@@ -85,6 +85,8 @@ Tests to run on the real phone (Galaxy S24 Ultra, Android 17) and the real camer
 | D14 | Deny the notification permission when first asked, then download. | Downloads still work; there is just no progress notification. | |
 | D15 | During a download, take a phone call or switch to another app for five minutes. | Download continues. | |
 | D16 | Fill the phone until less than 1 GB is free, then download a large clip. | Fails with a readable message. No crash, and no half-file appears in the gallery. | |
+| D17 | Camera recording, fresh start of the app: open Recordings, then Refresh. | The list shows (read from the camera's folder page), with the clip being recorded marked "Recording now". Downloading a finished clip works and the camera keeps recording. Save the log afterwards either way. | |
+| D18 | Only if D17 shows no list: tap "Pause recording to read the list", confirm. | The camera stops for a few seconds, the list shows, "the camera is recording again", and the home page shows it recording. The clip that was being recorded can now be downloaded. | |
 
 ## E. Fast download — **parked**
 

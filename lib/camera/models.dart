@@ -7,6 +7,7 @@ class CameraFile {
     required this.path,
     required this.size,
     required this.writeTime,
+    this.sizeSlack = 0,
   }) {
     final m = _namePattern.firstMatch(name);
     if (m == null) {
@@ -35,6 +36,13 @@ class CameraFile {
   /// URL path on the camera, e.g. `/Novatek/Movie/2026_1111_192257_045A.TS`.
   final String path;
   final int size;
+
+  /// How far the real size may be from [size]: 0 from the camera's file list, more from
+  /// its folder web page, which rounds sizes ("231.33 MB").
+  final int sizeSlack;
+
+  /// Whether a file of [bytes] can be this one.
+  bool sizeMatches(int bytes) => (bytes - size).abs() <= sizeSlack;
 
   /// The camera's last-write time for the file (its `TIME` field). For the clip being
   /// recorded this is close to the camera's current clock.

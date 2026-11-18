@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/l10n.dart';
 import '../state/appearance.dart';
 
 /// Colour and light/dark choices for the app. Needs no camera.
@@ -12,13 +13,14 @@ class AppearanceTiles extends ConsumerWidget {
     final appearance = ref.watch(appearanceProvider);
     final controller = ref.read(appearanceProvider.notifier);
     final theme = Theme.of(context);
+    final l = context.l10n;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Colours', style: theme.textTheme.bodyLarge),
+          Text(l.colours, style: theme.textTheme.bodyLarge),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -29,7 +31,15 @@ class AppearanceTiles extends ConsumerWidget {
                   avatar: c == ColorChoice.wallpaper
                       ? const Icon(Icons.wallpaper, size: 18)
                       : CircleAvatar(backgroundColor: c.seed, radius: 9),
-                  label: Text(c.label),
+                  label: Text(switch (c) {
+                    ColorChoice.wallpaper => l.colorWallpaper,
+                    ColorChoice.blue => l.colorBlue,
+                    ColorChoice.teal => l.colorTeal,
+                    ColorChoice.green => l.colorGreen,
+                    ColorChoice.orange => l.colorOrange,
+                    ColorChoice.red => l.colorRed,
+                    ColorChoice.purple => l.colorPurple,
+                  }),
                   selected: appearance.color == c,
                   showCheckmark: false,
                   onSelected: (_) => controller.setColor(c),
@@ -37,7 +47,7 @@ class AppearanceTiles extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 16),
-          Text('Appearance', style: theme.textTheme.bodyLarge),
+          Text(l.appearance, style: theme.textTheme.bodyLarge),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -51,7 +61,12 @@ class AppearanceTiles extends ConsumerWidget {
                     AppearanceMode.dark => Icons.dark_mode_outlined,
                     AppearanceMode.black => Icons.contrast,
                   }, size: 18),
-                  label: Text(m.label),
+                  label: Text(switch (m) {
+                    AppearanceMode.system => l.modeSystem,
+                    AppearanceMode.light => l.modeLight,
+                    AppearanceMode.dark => l.modeDark,
+                    AppearanceMode.black => l.modeBlack,
+                  }),
                   selected: appearance.mode == m,
                   showCheckmark: false,
                   onSelected: (_) => controller.setMode(m),
@@ -61,10 +76,7 @@ class AppearanceTiles extends ConsumerWidget {
           if (appearance.color == ColorChoice.wallpaper)
             Padding(
               padding: const EdgeInsets.only(top: 12),
-              child: Text(
-                'Wallpaper colours need Android 12 or later; otherwise blue is used.',
-                style: theme.textTheme.bodySmall,
-              ),
+              child: Text(l.wallpaperNote, style: theme.textTheme.bodySmall),
             ),
         ],
       ),

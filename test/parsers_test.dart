@@ -98,6 +98,67 @@ void main() {
     expect(f.isVideo, isFalse);
   });
 
+  group('folder page', () {
+    // Captured from the camera (11 Nov), trimmed.
+    const movie =
+        '<html>\n<body>\n<div id=folderlabel>folder</div>\n'
+        '<div id=folder>/Novatek/Movie</div>\n<div id=body>\n<table cellpadding=5>\n'
+        '<th>Filename\n<th>Filesize\n<th>Filetime\n'
+        '<tr><td><a href="/Novatek/Movie/2026_1110_184312_001A.TS"><b>2026_1110_184312_001A.TS</b></a><td align=right> 231.33 MB<td align=right>2026/11/10 18:45:48\n'
+        '<td align=right><a href="/Novatek/Movie/2026_1110_184312_001A.TS?del=1">Remove</a>\n'
+        '<tr><td><a href="/Novatek/Movie/2026_1110_190726_003A.TS"><b>2026_1110_190726_003A.TS</b></a><td align=right> 2.28 MB<td align=right>2026/11/10 19:07:26\n'
+        '<td align=right><a href="/Novatek/Movie/2026_1110_190726_003A.TS?del=1">Remove</a>\n'
+        '<tr><td colspan="4"><hr size=1 noshade align=top></td></tr></table>\n';
+    const root =
+        '<html>\n<body>\n<div id=folderlabel>folder</div>\n<div id=folder>/</div>\n'
+        '<div id=body>\n<table cellpadding=5>\n<th>Filename\n<th>Filesize\n<th>Filetime\n'
+        '<tr><td><a href="/LOG"><b>LOG</b></a><td align=center><i>folder</i><td align=right>2026/11/10 18:43:06\n'
+        '<tr><td><a href="/CardStatus.txt"><b>CardStatus.txt</b></a><td align=right> 0 B<td align=right>2026/11/10 18:43:06\n'
+        '<td align=right><a href="/CardStatus.txt?del=1">Remove</a>\n'
+        '<tr><td><a href="/NOVATEK"><b>NOVATEK</b></a><td align=center><i>folder</i><td align=right>2026/11/10 18:43:12\n'
+        '<tr><td colspan="4"><hr size=1 noshade align=top></td></tr></table>\n';
+
+    test('lists the files with rounded sizes', () {
+      final files = parseFolderPage(movie)!;
+      expect(files, hasLength(2));
+      final f = files.first;
+      expect(f.name, '2026_1110_184312_001A.TS');
+      expect(f.path, '/Novatek/Movie/2026_1110_184312_001A.TS');
+      expect(f.writeTime, DateTime(2026, 11, 10, 18, 45, 48));
+      expect(f.lens, Lens.front);
+      // The file list gave 242562488 bytes for this clip.
+      expect(f.sizeMatches(242562488), isTrue);
+      expect(f.sizeMatches(242562488 + 20000), isFalse);
+      expect(files[1].sizeMatches((2.28 * 1024 * 1024).round()), isTrue);
+    });
+
+    test('skips folders', () {
+      final files = parseFolderPage(root)!;
+      expect(files.map((f) => f.name), ['CardStatus.txt']);
+      expect(files.single.size, 0);
+    });
+
+    test('a "Page Not found" page is not a folder', () {
+      expect(
+        parseFolderPage(
+          '<html>\n<head><title>Page Not found</title></head>\n<body></body></html>',
+        ),
+        isNull,
+      );
+    });
+
+    test('reads the fake camera page like the real one', () {
+      final fake = FakeCameraTransport();
+      final files = parseFolderPage(
+        FakeCameraTransport.folderPageHtml(fake.files),
+      )!;
+      expect(files, hasLength(fake.files.length));
+      for (var i = 0; i < files.length; i++) {
+        expect(files[i].sizeMatches(fake.files[i].size), isTrue);
+      }
+    });
+  });
+
   test('path mapping round-trips', () {
     const fpath = r'A:\Novatek\Movie\2026_1111_192257_045A.TS';
     final path = fpathToUrlPath(fpath);

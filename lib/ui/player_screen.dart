@@ -9,6 +9,7 @@ import 'package:video_player/video_player.dart';
 import '../camera/models.dart';
 import '../camera/recordings.dart';
 import '../camera/transport.dart';
+import '../l10n/l10n.dart';
 import '../state/clip_names.dart';
 import '../state/downloads.dart';
 import '../state/pip.dart';
@@ -51,7 +52,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   late PlayerView _view = widget.lens == Lens.rear
       ? PlayerView.rear
       : PlayerView.front;
-  String? _error;
+  Msg? _error;
   bool _loading = true;
   int _generation = 0;
   late final CameraTransport _transport;
@@ -114,7 +115,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final uri = file == null
         ? null
         : await ref.read(downloaderProvider).localUri(file.name);
-    if (uri == null) throw StateError('This clip is not saved on the phone.');
+    if (uri == null) throw const _NotSaved();
     final c = VideoPlayerController.contentUri(
       Uri.parse(uri),
       videoPlayerOptions: VideoPlayerOptions(mixWithOthers: follower),
@@ -186,9 +187,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       if (gen != _generation || !mounted) return;
       setState(() {
         _loading = false;
-        _error = e is StateError
-            ? e.message
-            : 'This clip could not be played: $e';
+        _error = e is _NotSaved
+            ? (l) => l.clipNotSaved
+            : (l) => l.clipPlayFailed('$e');
       });
     }
   }
@@ -406,8 +407,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     return LayoutBuilder(
       builder: (context, box) {
         final wide = sideBySide ?? box.maxWidth > box.maxHeight;
-        final a = _video(front, label: labels ? 'Front' : null);
-        final b = _video(rear, label: labels ? 'Rear' : null);
+        final l = context.l10n;
+        final a = _video(front, label: labels ? l.front : null);
+        final b = _video(rear, label: labels ? l.rear : null);
         return wide
             ? Row(
                 children: [
@@ -428,13 +430,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   }
 
   Widget _picker() {
+    final l = context.l10n;
     return Theme(
       data: ThemeData.dark(useMaterial3: true),
       child: SegmentedButton<PlayerView>(
-        segments: const [
-          ButtonSegment(value: PlayerView.front, label: Text('Front')),
-          ButtonSegment(value: PlayerView.rear, label: Text('Rear')),
-          ButtonSegment(value: PlayerView.both, label: Text('Both')),
+        segments: [
+          ButtonSegment(value: PlayerView.front, label: Text(l.front)),
+          ButtonSegment(value: PlayerView.rear, label: Text(l.rear)),
+          ButtonSegment(value: PlayerView.both, label: Text(l.both)),
         ],
         selected: {_view},
         showSelectedIcon: false,
@@ -470,6 +473,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final local = ref.watch(localFilesProvider).value ?? const {};
     final inPip = ref.watch(pipProvider.select((s) => s.inPip));
     final r = widget.recording;
@@ -493,7 +497,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
             child: Padding(
               padding: const EdgeInsets.all(24),
               child: Text(
-                _error!,
+                _error!(l),
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: Colors.white),
               ),
@@ -554,7 +558,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                       const BackButton(color: Colors.white),
                       Expanded(
                         child: Text(
-                          name == null ? date : '$name · $date',
+                          name == null ? date : l.titleWithName(name, date),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -683,6 +687,7 @@ class _Controls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     const timeStyle = TextStyle(color: Colors.white70);
     return Theme(
       data: ThemeData.dark(useMaterial3: true),
@@ -706,21 +711,21 @@ class _Controls extends StatelessWidget {
           );
           final buttons = [
             IconButton(
-              tooltip: 'Back 10 seconds',
+              tooltip: l.back10,
               iconSize: compact ? 28 : 32,
               onPressed: () => seek(v.position - const Duration(seconds: 10)),
               icon: const Icon(Icons.replay_10),
             ),
             SizedBox(width: compact ? 8 : 16),
             IconButton.filled(
-              tooltip: playing ? 'Pause' : 'Play',
+              tooltip: playing ? l.pause : l.play,
               iconSize: compact ? 32 : 40,
               onPressed: playing ? pause : play,
               icon: Icon(playing ? Icons.pause : Icons.play_arrow),
             ),
             SizedBox(width: compact ? 8 : 16),
             IconButton(
-              tooltip: 'Forward 10 seconds',
+              tooltip: l.forward10,
               iconSize: compact ? 28 : 32,
               onPressed: () => seek(v.position + const Duration(seconds: 10)),
               icon: const Icon(Icons.forward_10),
@@ -769,4 +774,9 @@ class _Controls extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The clip is not (or no longer) in the phone's gallery.
+class _NotSaved implements Exception {
+  const _NotSaved();
 }

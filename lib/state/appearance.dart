@@ -5,31 +5,27 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Where the app's colours come from.
 enum ColorChoice {
   /// The phone's wallpaper colours (Android 12 and later). Blue where not available.
-  wallpaper('Wallpaper', Color(0xFF1565C0)),
-  blue('Blue', Color(0xFF1565C0)),
-  teal('Teal', Color(0xFF00796B)),
-  green('Green', Color(0xFF2E7D32)),
-  orange('Orange', Color(0xFFEF6C00)),
-  red('Red', Color(0xFFC62828)),
-  purple('Purple', Color(0xFF6A1B9A));
+  wallpaper(Color(0xFF1565C0)),
+  blue(Color(0xFF1565C0)),
+  teal(Color(0xFF00796B)),
+  green(Color(0xFF2E7D32)),
+  orange(Color(0xFFEF6C00)),
+  red(Color(0xFFC62828)),
+  purple(Color(0xFF6A1B9A));
 
-  const ColorChoice(this.label, this.seed);
-  final String label;
+  const ColorChoice(this.seed);
 
   /// Seed for the colour scheme; for [wallpaper] this is only the fallback.
   final Color seed;
 }
 
 enum AppearanceMode {
-  system('Follow system'),
-  light('Light'),
-  dark('Dark'),
+  system,
+  light,
+  dark,
 
   /// Dark with true black backgrounds, which saves power on OLED screens.
-  black('Pure black');
-
-  const AppearanceMode(this.label);
-  final String label;
+  black,
 }
 
 class Appearance {

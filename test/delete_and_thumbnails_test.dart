@@ -126,7 +126,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Delete 2 files from the camera?'), findsOneWidget);
       expect(
-        find.textContaining('None of them has been saved to this phone'),
+        find.textContaining('None are saved on this phone'),
         findsOneWidget,
       );
 

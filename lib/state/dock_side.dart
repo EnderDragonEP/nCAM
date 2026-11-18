@@ -2,13 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Which side of the floating dock the record button sits on.
-enum RecordButtonSide {
-  left('Left'),
-  right('Right');
-
-  const RecordButtonSide(this.label);
-  final String label;
-}
+enum RecordButtonSide { left, right }
 
 final recordButtonSideProvider =
     NotifierProvider<RecordButtonSideController, RecordButtonSide>(

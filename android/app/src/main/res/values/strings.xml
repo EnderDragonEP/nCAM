@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Texts Android shows outside the app's own screens (notifications, the floating
+     window's buttons). The app's screens use lib/l10n/app_en.arb. A translation goes in
+     res/values-<language>/strings.xml with the same names. -->
+<resources>
+    <string name="notification_channel_downloads">Downloads</string>
+    <string name="notification_preparing">Preparing download</string>
+    <!-- %1$d: number of the file being downloaded; %2$d: how many in total. -->
+    <string name="notification_downloading">Downloading %1$d of %2$d</string>
+    <!-- %1$s: file name. Shown while fast download keeps recording paused. -->
+    <string name="notification_recording_paused">%1$s · recording paused</string>
+    <string name="pip_play">Play</string>
+    <string name="pip_pause">Pause</string>
+    <string name="pip_back">Back 10 seconds</string>
+    <string name="pip_forward">Forward 10 seconds</string>
+</resources>

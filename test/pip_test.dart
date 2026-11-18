@@ -125,7 +125,7 @@ void main() {
     await tester.tap(find.byTooltip('Picture-in-picture'));
     await tester.pumpAndSettle();
     expect(
-      find.textContaining('Picture-in-picture is not available'),
+      find.textContaining("Picture-in-picture isn't available"),
       findsOneWidget,
     );
   });

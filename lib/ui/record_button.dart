@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../downloads/downloader.dart';
+import '../l10n/l10n.dart';
 import '../state/downloads.dart';
 import '../state/session.dart';
 
@@ -77,12 +78,12 @@ class _RecordButtonState extends ConsumerState<RecordButton>
       );
   }
 
-  Future<void> _run(Future<String?> Function() action, String done) async {
+  Future<void> _run(Future<Msg?> Function() action, Msg done) async {
     setState(() => _working = true);
     final error = await action();
     if (!mounted) return;
     setState(() => _working = false);
-    _say(error ?? done);
+    _say((error ?? done)(context.l10n));
   }
 
   void _onHold(AnimationStatus status) {
@@ -92,7 +93,7 @@ class _RecordButtonState extends ConsumerState<RecordButton>
     _hold.reset();
     _run(
       ref.read(sessionProvider.notifier).stopRecording,
-      'Recording stopped.',
+      (l) => l.recordingStopped,
     );
   }
 
@@ -220,17 +221,16 @@ class _RecordButtonState extends ConsumerState<RecordButton>
 
     // No visible label in the floating dock: the state is in the icon and colour, and
     // spelled out for screen readers here.
+    final l = context.l10n;
     final String label;
     if (!available) {
       label = fastPhase != FastPhase.idle
-          ? 'Recording paused for fast download.'
-          : 'Record. Not available until the camera is connected.';
+          ? l.a11yRecordPaused
+          : l.a11yRecordUnavailable;
     } else if (_working) {
-      label = recording ? 'Stopping recording.' : 'Starting recording.';
+      label = recording ? l.a11yStopping : l.a11yStarting;
     } else {
-      label = recording
-          ? 'Recording. Press and hold to stop.'
-          : 'Not recording. Tap to start.';
+      label = recording ? l.a11yRecording : l.a11yNotRecording;
     }
 
     return OverlayPortal(
@@ -294,12 +294,12 @@ class _RecordButtonState extends ConsumerState<RecordButton>
                 // Let go before the ring filled: explain, do not stop.
                 _hold.reverse();
                 HapticFeedback.lightImpact();
-                _say('Hold the button to stop recording.');
+                _say(l.holdToStop);
               } else {
                 HapticFeedback.mediumImpact();
                 _run(
                   ref.read(sessionProvider.notifier).startRecording,
-                  'Recording started.',
+                  (l) => l.recordingStarted,
                 );
               }
             },

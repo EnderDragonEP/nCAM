@@ -68,6 +68,9 @@ class FastModeStatus {
   /// The user's switch.
   final bool enabled;
   final FastPhase phase;
+
+  /// Why recording could not be restarted, in the camera's or Android's words (not a
+  /// sentence for the user).
   final String? message;
 }
 

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,6 +7,7 @@ import '../camera/camera_api.dart';
 import '../camera/models.dart';
 import '../camera/platform_transport.dart';
 import '../camera/transport.dart';
+import '../l10n/l10n.dart';
 import 'auto_connect.dart';
 import 'sync_on_connect.dart';
 import 'credentials.dart';
@@ -84,7 +86,7 @@ class SessionState {
 
   /// A connect or a camera query is in progress.
   final bool busy;
-  final String? error;
+  final Msg? error;
   final CameraStatus? status;
 
   /// When [status] was read from the camera; the clip timer counts on from here.
@@ -93,7 +95,7 @@ class SessionState {
 
   /// Why [files] is empty although the camera is connected: it would not give a list.
   /// The rest of the app keeps working.
-  final String? filesError;
+  final Msg? filesError;
 
   /// Paths of the clips the camera is writing right now. They are still growing, so they
   /// are not offered for download.
@@ -120,11 +122,11 @@ class SessionState {
     saved: saved == _keep ? this.saved : saved as CameraCredentials?,
     link: link ?? this.link,
     busy: busy ?? this.busy,
-    error: error == _keep ? this.error : error as String?,
+    error: error == _keep ? this.error : error as Msg?,
     status: status == _keep ? this.status : status as CameraStatus?,
     statusAt: status == _keep ? statusAt : DateTime.now(),
     files: files == _keep ? this.files : files as List<CameraFile>?,
-    filesError: filesError == _keep ? this.filesError : filesError as String?,
+    filesError: filesError == _keep ? this.filesError : filesError as Msg?,
     writing: writing ?? this.writing,
     timeSync: timeSync == _keep ? this.timeSync : timeSync as TimeSync?,
   );
@@ -256,9 +258,8 @@ class SessionController extends Notifier<SessionState> {
       state = state.copyWith(
         busy: false,
         error: e.message == 'unavailable'
-            ? 'Could not join "$ssid". Check that the camera is on and in range, '
-                  'that the password is right, and that you accepted the system prompt.'
-            : 'Could not join "$ssid": ${e.message}',
+            ? (AppLocalizations l) => l.joinFailedHint(ssid)
+            : (AppLocalizations l) => l.joinFailed(ssid, e.message),
       );
     }
   }
@@ -306,7 +307,7 @@ class SessionController extends Notifier<SessionState> {
       if (status == null) {
         state = state.copyWith(
           busy: false,
-          error: 'Joined the Wi-Fi but the camera did not answer: $lastError',
+          error: (AppLocalizations l) => l.cameraNoAnswer('$lastError'),
         );
         return;
       }
@@ -326,7 +327,9 @@ class SessionController extends Notifier<SessionState> {
       }
     } catch (e) {
       if (stale()) return;
-      state = state.copyWith(error: 'Camera error: $e');
+      state = state.copyWith(
+        error: (AppLocalizations l) => l.cameraError('$e'),
+      );
     } finally {
       if (!stale()) state = state.copyWith(busy: false);
     }
@@ -350,7 +353,9 @@ class SessionController extends Notifier<SessionState> {
       );
     } catch (e) {
       if (!ref.mounted || gen != _generation) return;
-      state = state.copyWith(error: 'Camera error: $e');
+      state = state.copyWith(
+        error: (AppLocalizations l) => l.cameraError('$e'),
+      );
     } finally {
       if (ref.mounted && gen == _generation) {
         state = state.copyWith(busy: false);
@@ -396,11 +401,11 @@ class SessionController extends Notifier<SessionState> {
 
   /// Gives the camera's Wi-Fi a new name and password, then rejoins it under them.
   /// Returns an error message, or null when the app is connected again.
-  Future<String?> changeWifi(String ssid, String password) async {
+  Future<Msg?> changeWifi(String ssid, String password) async {
     try {
       await _api.setWifi(ssid, password);
     } catch (e) {
-      return 'The camera did not accept the new Wi-Fi settings: $e';
+      return (AppLocalizations l) => l.wifiRefused('$e');
     }
     // Saved before reconnecting: from here on the old credentials are useless.
     final creds = CameraCredentials(ssid, password);
@@ -416,18 +421,19 @@ class SessionController extends Notifier<SessionState> {
 
   /// Tells the camera to start recording and checks that it did. Returns an error
   /// message, or null when the camera is recording.
-  Future<String?> startRecording() => _setRecording(true);
+  Future<Msg?> startRecording() => _setRecording(true);
 
   /// Tells the camera to stop recording and checks that it did. Returns an error
   /// message, or null when the camera has stopped.
-  Future<String?> stopRecording() => _setRecording(false);
+  Future<Msg?> stopRecording() => _setRecording(false);
 
-  Future<String?> _setRecording(bool on) async {
-    final what = on ? 'start' : 'stop';
+  Future<Msg?> _setRecording(bool on) async {
     try {
       await _api.setRecording(on);
     } catch (e) {
-      return 'The camera refused to $what recording: $e';
+      return on
+          ? (AppLocalizations l) => l.startRefused('$e')
+          : (AppLocalizations l) => l.stopRefused('$e');
     }
     await Future<void>.delayed(ref.read(clockProbeDelayProvider));
     if (!ref.mounted) return null;
@@ -438,13 +444,15 @@ class SessionController extends Notifier<SessionState> {
         state = state.copyWith(status: status.withRecordingSeconds(seconds));
       }
     } catch (e) {
-      return 'The camera was told to $what recording, but did not answer afterwards: $e';
+      return on
+          ? (AppLocalizations l) => l.startNoAnswer('$e')
+          : (AppLocalizations l) => l.stopNoAnswer('$e');
     }
     final recording = state.status?.isRecording ?? false;
     if (recording == on) return null;
     return on
-        ? 'The camera accepted the command but is still not recording.'
-        : 'The camera accepted the command but is still recording.';
+        ? (AppLocalizations l) => l.stillNotRecording
+        : (AppLocalizations l) => l.stillRecording;
   }
 
   /// Manual "Sync time".
@@ -519,15 +527,82 @@ class SessionController extends Notifier<SessionState> {
       return files;
     } on FileListUnavailable catch (e) {
       if (ref.mounted) {
+        final recording = state.status?.isRecording ?? false;
         state = state.copyWith(
-          filesError:
-              'The camera did not send a file list (${e.message}). '
-              'It does this when the card has no recordings yet, and on some days '
-              'while it records; stop recording and refresh to check.',
+          filesError: recording
+              ? (AppLocalizations l) => l.listRefusedRecording(e.message)
+              : (AppLocalizations l) => l.listRefused(e.message),
         );
       }
       return const [];
     }
+  }
+
+  /// For a camera that will not list its files while it records: stops recording, reads
+  /// the list, and starts recording again, whatever happens in between. The camera
+  /// closes the clip it was writing, so that one can be downloaded too. Returns an
+  /// error message, or null when the list was read and recording runs again.
+  Future<Msg?> refreshPausingRecording() async {
+    if (!state.connected || state.busy) return null;
+    final gen = _generation;
+    bool stale() => !ref.mounted || gen != _generation;
+    final wait = ref.read(clockProbeDelayProvider);
+    final retry = ref.read(cameraRetryDelayProvider);
+    state = state.copyWith(busy: true, error: null);
+    Msg? problem;
+    try {
+      await _api.setRecording(false);
+      for (var i = 0; i < 10; i++) {
+        if (await _api.recordingSeconds() == 0) break;
+        await Future<void>.delayed(wait);
+      }
+      List<CameraFile>? files;
+      for (var i = 0; i < 4 && files == null; i++) {
+        try {
+          files = [
+            for (final f in await _api.listFiles())
+              if (f.isMedia) f,
+          ];
+        } on FileListUnavailable {
+          await Future<void>.delayed(retry);
+        }
+      }
+      if (stale()) return null;
+      if (files == null) {
+        problem = (AppLocalizations l) => l.listRefusedStopped;
+      } else {
+        // Nothing is being written until recording starts again.
+        state = state.copyWith(
+          files: files,
+          writing: const {},
+          filesError: null,
+        );
+      }
+    } catch (e) {
+      problem = (AppLocalizations l) => l.listReadFailed('$e');
+    } finally {
+      // Never leave the camera stopped.
+      Msg? restart;
+      try {
+        await _api.setRecording(true);
+        await Future<void>.delayed(wait);
+        final status = await _api.status();
+        if (!stale()) state = state.copyWith(status: status);
+        if (!status.isRecording) {
+          restart = (AppLocalizations l) => l.recordingDidNotRestart;
+        }
+      } catch (e) {
+        restart = (AppLocalizations l) => l.recordingMaybeOff('$e');
+      }
+      if (!stale()) state = state.copyWith(busy: false);
+      final first = problem;
+      if (restart != null) {
+        problem = first == null
+            ? restart
+            : (AppLocalizations l) => '${first(l)} ${restart!(l)}';
+      }
+    }
+    return problem;
   }
 
   /// Lists the files a second time to find the clips that are still growing. Returns the
@@ -564,7 +639,9 @@ List<CameraFile> filesBeingWritten(
     for (final f in after)
       if (switch (old[f.path]) {
         null => true,
-        final o => o.size != f.size || o.writeTime != f.writeTime,
+        final o =>
+          (o.size - f.size).abs() > math.max(o.sizeSlack, f.sizeSlack) ||
+              o.writeTime != f.writeTime,
       })
         f,
   ];

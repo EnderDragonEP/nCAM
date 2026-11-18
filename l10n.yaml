@@ -1,0 +1,10 @@
+# Texts shown to the user live in lib/l10n/app_<language>.arb; app_en.arb is the
+# original. `flutter gen-l10n` (also run by every build) turns them into
+# lib/l10n/app_localizations*.dart. See "Translations" in README.md.
+arb-dir: lib/l10n
+template-arb-file: app_en.arb
+output-localization-file: app_localizations.dart
+output-class: AppLocalizations
+required-resource-attributes: false
+# Lists the texts a translation is still missing (only written once one exists).
+untranslated-messages-file: build/l10n_untranslated.json

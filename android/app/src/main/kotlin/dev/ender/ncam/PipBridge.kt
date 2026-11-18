@@ -144,12 +144,12 @@ class PipBridge(private val activity: Activity, messenger: BinaryMessenger) :
 
     private fun remoteAction(index: Int, name: String): RemoteAction? {
         val (icon, title) = when (name) {
-            "play" -> android.R.drawable.ic_media_play to "Play"
-            "pause" -> android.R.drawable.ic_media_pause to "Pause"
-            "rewind" -> android.R.drawable.ic_media_rew to "Back 10 seconds"
-            "forward" -> android.R.drawable.ic_media_ff to "Forward 10 seconds"
+            "play" -> android.R.drawable.ic_media_play to R.string.pip_play
+            "pause" -> android.R.drawable.ic_media_pause to R.string.pip_pause
+            "rewind" -> android.R.drawable.ic_media_rew to R.string.pip_back
+            "forward" -> android.R.drawable.ic_media_ff to R.string.pip_forward
             else -> return null
-        }
+        }.let { (icon, text) -> icon to activity.getString(text) }
         val intent = Intent(ACTION).setPackage(activity.packageName).putExtra(EXTRA_NAME, name)
         val pending = PendingIntent.getBroadcast(
             activity, index, intent,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../downloads/downloader.dart';
+import '../l10n/l10n.dart';
 import '../state/downloads.dart';
 
 /// The "Fast download" switch. Turning it on asks for confirmation, because it means the
@@ -12,13 +13,12 @@ class FastModeSwitch extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final enabled = ref.watch(fastModeProvider).value?.enabled ?? false;
+    final l = context.l10n;
     return SwitchListTile(
       dense: true,
       secondary: const Icon(Icons.speed),
-      title: const Text('Fast download'),
-      subtitle: const Text(
-        'Pauses recording while downloading. About 2× faster.',
-      ),
+      title: Text(l.fastTitle),
+      subtitle: Text(l.fastHint),
       value: enabled,
       onChanged: (on) async {
         final downloader = ref.read(downloaderProvider);
@@ -29,22 +29,16 @@ class FastModeSwitch extends ConsumerWidget {
         final confirmed = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('Pause recording to download faster?'),
-            content: const Text(
-              'While files download, the camera records nothing.\n\n'
-              'Recording restarts by itself when the queue is finished or cancelled. '
-              'If you close the app or drive out of range before that, recording stays '
-              'off until the app reconnects to the camera.\n\n'
-              'Only use this while parked.',
-            ),
+            title: Text(l.fastConfirmTitle),
+            content: Text(l.fastConfirmBody),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
+                child: Text(l.cancel),
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('Turn on'),
+                child: Text(l.turnOn),
               ),
             ],
           ),
@@ -90,16 +84,15 @@ class _RecordingPausedBannerState extends ConsumerState<RecordingPausedBanner> {
         ref.watch(downloadJobsProvider).value?.any((j) => j.active) ?? false;
     final scheme = Theme.of(context).colorScheme;
     final failed = phase == FastPhase.failed;
+    final l = context.l10n;
+    final detail = fast?.message;
     final text = switch (phase) {
-      FastPhase.pausing => 'Pausing recording for fast download…',
+      FastPhase.pausing => l.fastPausing,
       FastPhase.paused =>
-        downloading
-            ? 'Recording is PAUSED while files download. It restarts when the queue is finished.'
-            : 'Recording is PAUSED. It was not restarted after the last fast download.',
-      FastPhase.resuming => 'Restarting recording…',
+        downloading ? l.fastPausedDownloading : l.fastPausedIdle,
+      FastPhase.resuming => l.fastResuming,
       FastPhase.failed =>
-        fast?.message ??
-            'Recording is still OFF. The app could not restart it.',
+        detail == null ? l.fastFailed : l.fastFailedDetail(detail),
       FastPhase.idle => '',
     };
     final busy =
@@ -138,10 +131,7 @@ class _RecordingPausedBannerState extends ConsumerState<RecordingPausedBanner> {
               ),
             ),
             if (canRestart)
-              TextButton(
-                onPressed: _restart,
-                child: const Text('Restart recording'),
-              ),
+              TextButton(onPressed: _restart, child: Text(l.restartRecording)),
           ],
         ),
       ),

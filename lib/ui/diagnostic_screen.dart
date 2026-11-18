@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/l10n.dart';
 import '../state/session.dart';
 
 /// Shows the app's record of every command it sent the camera and each answer, so a
@@ -27,7 +28,8 @@ class _DiagnosticScreenState extends ConsumerState<DiagnosticScreen> {
     try {
       log = await ref.read(transportProvider).diagnosticLog();
     } catch (e) {
-      log = 'Could not read the log: $e';
+      if (!mounted) return;
+      log = context.l10n.logReadFailed('$e');
     }
     if (mounted) setState(() => _log = log);
   }
@@ -37,17 +39,18 @@ class _DiagnosticScreenState extends ConsumerState<DiagnosticScreen> {
     final log = _log;
     // Newest first: the interesting part is usually the end.
     final lines = (log ?? '').trimRight().split('\n').reversed.toList();
+    final l = context.l10n;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Diagnostic log'),
+        title: Text(l.diagnosticLog),
         actions: [
           IconButton(
-            tooltip: 'Reload',
+            tooltip: l.reload,
             onPressed: _load,
             icon: const Icon(Icons.refresh),
           ),
           IconButton(
-            tooltip: 'Save to Downloads',
+            tooltip: l.saveToDownloads,
             onPressed: log == null || log.isEmpty
                 ? null
                 : () async {
@@ -57,29 +60,29 @@ class _DiagnosticScreenState extends ConsumerState<DiagnosticScreen> {
                       final name = await ref
                           .read(transportProvider)
                           .saveDiagnosticLog();
-                      message = 'Saved to Downloads as $name';
+                      message = l.logSaved(name);
                     } catch (e) {
-                      message = 'Could not save the log: $e';
+                      message = l.logSaveFailed('$e');
                     }
                     messenger.showSnackBar(SnackBar(content: Text(message)));
                   },
             icon: const Icon(Icons.download),
           ),
           IconButton(
-            tooltip: 'Copy all',
+            tooltip: l.copyAll,
             onPressed: log == null || log.isEmpty
                 ? null
                 : () async {
                     final messenger = ScaffoldMessenger.of(context);
                     await Clipboard.setData(ClipboardData(text: log));
                     messenger.showSnackBar(
-                      const SnackBar(content: Text('Log copied.')),
+                      SnackBar(content: Text(l.logCopied)),
                     );
                   },
             icon: const Icon(Icons.copy),
           ),
           IconButton(
-            tooltip: 'Clear',
+            tooltip: l.clear,
             onPressed: () async {
               await ref.read(transportProvider).clearDiagnosticLog();
               await _load();
@@ -91,7 +94,7 @@ class _DiagnosticScreenState extends ConsumerState<DiagnosticScreen> {
       body: log == null
           ? const Center(child: CircularProgressIndicator())
           : log.trim().isEmpty
-          ? const Center(child: Text('Nothing logged yet.'))
+          ? Center(child: Text(l.logEmpty))
           : ListView.builder(
               padding: const EdgeInsets.all(12),
               itemCount: lines.length,

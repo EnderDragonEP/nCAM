@@ -132,7 +132,10 @@ class FileStatusResolver {
         break;
     }
     // Same name and same size: the copy in the gallery is this file.
-    if (local[f.name] == f.size) return FileView(f, FileStatus.saved);
+    final saved = local[f.name];
+    if (saved != null && f.sizeMatches(saved)) {
+      return FileView(f, FileStatus.saved);
+    }
     return FileView(f, FileStatus.onCamera);
   }
 }
@@ -150,5 +153,7 @@ const cameraBaseUrl = 'http://192.168.1.254';
 DownloadRequest downloadRequestFor(CameraFile f) => DownloadRequest(
   name: f.name,
   url: '$cameraBaseUrl${Uri.encodeFull(f.path)}',
-  total: f.size,
+  // A rounded size would make the download stop short or start over; unknown (0) lets
+  // the camera's reply give the length.
+  total: f.sizeSlack == 0 ? f.size : 0,
 );

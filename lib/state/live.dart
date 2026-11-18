@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../camera/camera_api.dart';
 import '../camera/transport.dart';
+import '../l10n/l10n.dart';
 import 'session.dart';
 
 /// How long to wait for the first picture before nudging the camera.
@@ -32,7 +33,7 @@ class LiveState {
 
   /// The latest picture (a JPEG). Kept while reconnecting so the screen does not go black.
   final Uint8List? frame;
-  final String? message;
+  final Msg? message;
   final int framesPerSecond;
 
   /// Which picture the camera is sending, as the camera's own index. Null if unknown.
@@ -49,7 +50,7 @@ class LiveState {
   }) => LiveState(
     status: status ?? this.status,
     frame: frame ?? this.frame,
-    message: message == _keep ? this.message : message as String?,
+    message: message == _keep ? this.message : message as Msg?,
     framesPerSecond: framesPerSecond ?? this.framesPerSecond,
     viewIndex: viewIndex ?? this.viewIndex,
   );
@@ -144,8 +145,8 @@ class LiveController extends Notifier<LiveState> {
             );
           },
           onError: (Object e) =>
-              _onEnded(e is TransportException ? e.message : '$e'),
-          onDone: () => _onEnded('the camera closed the stream'),
+              _onEnded((_) => e is TransportException ? e.message : '$e'),
+          onDone: () => _onEnded((AppLocalizations l) => l.liveStreamClosed),
         );
     _timer = Timer(ref.read(liveStartTimeoutProvider), _onSilent);
   }
@@ -165,7 +166,7 @@ class LiveController extends Notifier<LiveState> {
       _sub = null;
       state = state.copyWith(
         status: LiveStatus.connecting,
-        message: 'Camera connection lost. Reconnecting…',
+        message: (AppLocalizations l) => l.liveConnectionLost,
       );
     }
   }
@@ -174,7 +175,7 @@ class LiveController extends Notifier<LiveState> {
 
   /// The stream keeps failing. Rebuild the camera link once (what fixed it by hand:
   /// Disconnect, then Connect) before asking the user.
-  void _giveUp(String message) {
+  void _giveUp(Msg message) {
     final session = ref.read(sessionProvider);
     if (!_rebuiltLink && session.saved != null) {
       _rebuiltLink = true;
@@ -184,7 +185,7 @@ class LiveController extends Notifier<LiveState> {
       _sub = null;
       state = state.copyWith(
         status: LiveStatus.connecting,
-        message: 'Restarting the camera connection…',
+        message: (AppLocalizations l) => l.liveRestarting,
       );
       ref.read(sessionProvider.notifier).reconnect().ignore();
       return;
@@ -204,10 +205,10 @@ class LiveController extends Notifier<LiveState> {
       _open();
       return;
     }
-    _giveUp('The camera is not sending a picture.');
+    _giveUp((AppLocalizations l) => l.liveNoPicture);
   }
 
-  void _onEnded(String reason) {
+  void _onEnded(Msg reason) {
     if (_disposed) return;
     _timer?.cancel();
     _sub?.cancel();
@@ -219,17 +220,17 @@ class LiveController extends Notifier<LiveState> {
     }
     _failures++;
     if (_failures > _maxFailures) {
-      _giveUp('Live view stopped: $reason');
+      _giveUp((AppLocalizations l) => l.liveStopped(reason(l)));
       return;
     }
     state = state.copyWith(
       status: LiveStatus.connecting,
-      message: 'Reconnecting…',
+      message: (AppLocalizations l) => l.liveReconnecting,
     );
     _timer = Timer(ref.read(liveRetryDelayProvider), _open);
   }
 
-  void _fail(String message) {
+  void _fail(Msg message) {
     _timer?.cancel();
     _sub?.cancel();
     _sub = null;
@@ -245,7 +246,7 @@ class LiveController extends Notifier<LiveState> {
       _waitingForLink = true;
       state = state.copyWith(
         status: LiveStatus.connecting,
-        message: 'Reconnecting to the camera…',
+        message: (AppLocalizations l) => l.liveReconnecting,
       );
       ref.read(sessionProvider.notifier).reconnect().ignore();
       return;

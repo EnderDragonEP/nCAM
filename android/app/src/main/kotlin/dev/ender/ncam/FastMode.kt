@@ -32,6 +32,7 @@ object FastMode {
 
     @Volatile var phase: String = IDLE
         private set
+    /** Technical reason for [FAILED]; the app builds the sentence around it. */
     @Volatile var message: String? = null
         private set
 
@@ -139,11 +140,9 @@ object FastMode {
             } catch (_: InterruptedException) {
             }
         }
-        setPhase(
-            FAILED,
-            "Recording is still OFF. The app could not restart it ($lastError). " +
-                "Reconnect to the camera and try again, or press the record button on the camera.",
-        )
+        // Only the technical reason: the app writes the sentence around it in the
+        // user's language.
+        setPhase(FAILED, lastError)
         return false
     }
 

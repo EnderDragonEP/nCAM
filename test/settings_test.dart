@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:ncam/l10n/l10n.dart';
 import 'package:ncam/camera/camera_api.dart';
 import 'package:ncam/camera/fake_transport.dart';
 import 'package:ncam/camera/models.dart';
@@ -70,10 +71,10 @@ void main() {
     });
 
     test('option labels are tidied only where the meaning is certain', () {
-      expect(prettyOption('3MIN'), '3 min');
-      expect(prettyOption('ON'), 'On');
+      expect(prettyOption(english, '3MIN'), '3 min');
+      expect(prettyOption(english, 'ON'), 'On');
       expect(
-        prettyOption('1920x1080P30_1920x1080P30'),
+        prettyOption(english, '1920x1080P30_1920x1080P30'),
         '1920x1080P30_1920x1080P30',
       );
     });
@@ -118,7 +119,7 @@ void main() {
       final message = await c
           .read(settingsProvider.notifier)
           .change(named('MOVIE_AUDIO'), 0);
-      expect(message, contains('recording was restarted'));
+      expect(message!(english), contains('was restarted'));
       expect(commands(), contains('cmd=2001&par=1'));
       expect(camera.recordingSeconds, greaterThan(0));
     });
@@ -129,7 +130,7 @@ void main() {
       final message = await c
           .read(settingsProvider.notifier)
           .change(named('MOVIE_AUDIO'), 0);
-      expect(message, contains('refused'));
+      expect(message!(english), contains('refused'));
       expect(camera.settingValues[2007], 1);
     });
 
@@ -141,7 +142,7 @@ void main() {
           .toList();
       expect(order, ['cmd=2001&par=0', 'cmd=3010&par=1', 'cmd=2001&par=1']);
       expect(camera.formatted, isTrue);
-      expect(message, contains('Recording was restarted'));
+      expect(message(english), contains('Recording restarted.'));
     });
 
     test('format leaves a stopped camera stopped', () async {
@@ -156,7 +157,7 @@ void main() {
       await start();
       final message = await c.read(settingsProvider.notifier).factoryReset();
       expect(camera.factoryReset, isTrue);
-      expect(message, contains('Factory settings restored'));
+      expect(message(english), contains('Factory settings restored'));
     });
   });
 
@@ -258,7 +259,7 @@ void main() {
       await tester.enterText(find.byType(TextField).at(1), 'short');
       await tester.tap(find.text('Change'));
       await tester.pumpAndSettle();
-      expect(find.textContaining('Password: 8 to 63'), findsOneWidget);
+      expect(find.textContaining('Password: 8–63'), findsOneWidget);
       expect(camera.wifiSsid, isNull);
     });
   });

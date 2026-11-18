@@ -40,6 +40,19 @@ adb install -r build/app/outputs/flutter-apk/app-release.apk
 
 Prototype builds are also kept, with a timestamp in the name, in `M:\nCam-prototypes\nCam-<yyyyMMdd-HHmmss>.apk` on the development PC.
 
+## Translations
+
+All the text the app shows is in [lib/l10n/app_en.arb](lib/l10n/app_en.arb), in English. The code reads it through `context.l10n` (screens) or hands over a `Msg` (state code), so no sentence is written into the code itself. The app follows the phone's language and falls back to English.
+
+To add a language, for example German:
+
+1. Copy `lib/l10n/app_en.arb` to `lib/l10n/app_de.arb`, set `"@@locale": "de"`, and translate the values. Keep the `{placeholders}` and the `plural` structure. The `@` entries explain each text and do not need copying.
+2. `dayPattern` is the format of the day headings (intl `DateFormat` letters). Change the order to suit the language, e.g. `EEE d. MMM y`.
+3. For the notifications and the floating-window buttons, copy `android/app/src/main/res/values/strings.xml` to `res/values-de/strings.xml` and translate it.
+4. Build. `flutter gen-l10n` runs as part of every build and regenerates `lib/l10n/app_localizations*.dart`. It lists anything still untranslated in `build/l10n_untranslated.json`.
+
+Technical details inside messages, such as a camera status code or an Android error, stay in their original wording.
+
 ## Camera test script
 
 `tools/camtest.py` queries the camera directly (Python 3, runs on a PC or in Termux). Join the camera's Wi-Fi first, then run `python tools/camtest.py`.

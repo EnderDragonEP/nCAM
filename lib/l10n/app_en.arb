@@ -1,0 +1,962 @@
+{
+  "@@locale": "en",
+  "appTitle": "nCAM",
+  "@appTitle": {
+    "description": "App name in the title bar."
+  },
+  "cancel": "Cancel",
+  "delete": "Delete",
+  "save": "Save",
+  "retry": "Retry",
+  "tryAgain": "Try again",
+  "refresh": "Refresh",
+  "more": "More",
+  "@more": {
+    "description": "Tooltip of a three-dot menu."
+  },
+  "connect": "Connect",
+  "starting": "Starting…",
+  "front": "Front",
+  "@front": {
+    "description": "The front camera."
+  },
+  "rear": "Rear",
+  "@rear": {
+    "description": "The rear camera."
+  },
+  "both": "Both",
+  "@both": {
+    "description": "Front and rear together."
+  },
+  "play": "Play",
+  "pause": "Pause",
+  "back10": "Back 10 seconds",
+  "forward10": "Forward 10 seconds",
+  "showPassword": "Show password",
+  "hidePassword": "Hide password",
+  "notConnected": "Not connected",
+  "firmware": "Firmware",
+  "noSdCard": "No SD card",
+  "freeSpace": "{size} free",
+  "@freeSpace": {
+    "description": "Free space on the SD card, e.g. \"113.0 GB free\".",
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "unknownDate": "Unknown date",
+  "search": "Search",
+  "searchHint": "Search names and dates",
+  "clearSearch": "Clear search",
+  "closeSearch": "Close search",
+  "fileCount": "{count, plural, =1{1 file} other{{count} files}}",
+  "@fileCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsTitle": "Settings",
+  "diagnosticLog": "Diagnostic log",
+  "titleWithName": "{name} · {date}",
+  "@titleWithName": {
+    "description": "A recording's name and its date.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dayPattern": "EEE d MMM y",
+  "@dayPattern": {
+    "description": "Pattern for day headings, e.g. \"Wed 11 Nov 2026\". Uses the letters of the intl package's DateFormat (EEE weekday, d day, MMM month, y year)."
+  },
+  "spanSeconds": "{s} s",
+  "@spanSeconds": {
+    "description": "A duration under a minute.",
+    "placeholders": {
+      "s": {
+        "type": "int"
+      }
+    }
+  },
+  "spanMinutes": "{m} min {s} s",
+  "@spanMinutes": {
+    "description": "A duration under an hour.",
+    "placeholders": {
+      "m": {
+        "type": "int"
+      },
+      "s": {
+        "type": "int"
+      }
+    }
+  },
+  "spanHours": "{h} h {m} min",
+  "@spanHours": {
+    "description": "A duration under a day.",
+    "placeholders": {
+      "h": {
+        "type": "int"
+      },
+      "m": {
+        "type": "int"
+      }
+    }
+  },
+  "spanDays": "{count, plural, =1{1 day} other{{count} days}}",
+  "@spanDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tabLive": "Live",
+  "@tabLive": {
+    "description": "Dock button: live view."
+  },
+  "tabRecordings": "Recordings",
+  "@tabRecordings": {
+    "description": "Dock button: the camera's recordings."
+  },
+  "tabSaved": "Saved",
+  "@tabSaved": {
+    "description": "Dock button: recordings saved on the phone."
+  },
+  "recordingStarted": "Recording started.",
+  "recordingStopped": "Recording stopped.",
+  "holdToStop": "Hold the button to stop recording.",
+  "a11yRecordPaused": "Recording paused for fast download.",
+  "@a11yRecordPaused": {
+    "description": "Screen reader."
+  },
+  "a11yRecordUnavailable": "Record. Not available until connected.",
+  "@a11yRecordUnavailable": {
+    "description": "Screen reader."
+  },
+  "a11yStopping": "Stopping recording.",
+  "@a11yStopping": {
+    "description": "Screen reader."
+  },
+  "a11yStarting": "Starting recording.",
+  "@a11yStarting": {
+    "description": "Screen reader."
+  },
+  "a11yRecording": "Recording. Press and hold to stop.",
+  "@a11yRecording": {
+    "description": "Screen reader."
+  },
+  "a11yNotRecording": "Not recording. Tap to start.",
+  "@a11yNotRecording": {
+    "description": "Screen reader."
+  },
+  "defaultCameraName": "camera",
+  "@defaultCameraName": {
+    "description": "Used for {name} when no camera is saved."
+  },
+  "linkConnected": "Connected to {name}",
+  "@linkConnected": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "linkConnectedHint": "Only this app uses the camera's Wi-Fi; the rest of the phone stays online.",
+  "linkJoining": "Joining {name}…",
+  "@linkJoining": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "linkJoiningHint": "Android may ask you to confirm.",
+  "linkLost": "Lost {name}",
+  "@linkLost": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "linkLostHint": "Rejoins when the camera is back in range.",
+  "linkFirstTime": "Enter the camera's Wi-Fi name and password once.",
+  "linkSaved": "Saved camera: {name}",
+  "@linkSaved": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "disconnect": "Disconnect",
+  "scanNone": "No networks found. Turn Wi-Fi on, or type the name.",
+  "scanNoPermission": "Without that permission, networks can't be listed. You can type the name.",
+  "scanFailed": "Scan failed: {detail}",
+  "@scanFailed": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "connectTo": "Connect to {name}",
+  "@connectTo": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "changeNameOrPassword": "Change name or password",
+  "forget": "Forget",
+  "@forget": {
+    "description": "Forget the saved camera."
+  },
+  "cameraWifiName": "Camera Wi-Fi name",
+  "findNetworks": "Find nearby networks",
+  "password": "Password",
+  "nowRecording": "The camera is recording.",
+  "notRecordingWarning": "The camera is NOT recording.",
+  "startRecording": "Start recording",
+  "recording": "Recording",
+  "notRecording": "Not recording",
+  "sdCardOk": "SD card OK",
+  "currentClip": "Current clip: {span}",
+  "@currentClip": {
+    "description": "How long the clip being recorded is, e.g. \"4 min 10 s\".",
+    "placeholders": {
+      "span": {
+        "type": "String"
+      }
+    }
+  },
+  "noFileList": "No file list",
+  "clockNotSynced": "Camera clock not synced yet",
+  "syncOnConnectIsOff": "Sync on connect is off in Settings.",
+  "clockSyncFailed": "Clock sync failed",
+  "clockSyncedAt": "Clock synced at {time}",
+  "@clockSyncedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "clockNotChecked": "Previous time unknown: the camera wasn't recording.",
+  "clockWasRight": "The camera's clock was already right.",
+  "clockWasAhead": "The camera was {span} ahead.",
+  "@clockWasAhead": {
+    "placeholders": {
+      "span": {
+        "type": "String"
+      }
+    }
+  },
+  "clockWasBehind": "The camera was {span} behind.",
+  "@clockWasBehind": {
+    "placeholders": {
+      "span": {
+        "type": "String"
+      }
+    }
+  },
+  "clockNextClip": "The new time shows from the next clip.",
+  "syncTime": "Sync time",
+  "recordingCount": "{count, plural, =1{1 recording} other{{count} recordings}}",
+  "@recordingCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "filesAndSize": "{count, plural, =1{1 file, {size}} other{{count} files, {size}}}",
+  "@filesAndSize": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "downloadsActive": "{count, plural, =1{1 download running} other{{count} downloads queued}}",
+  "@downloadsActive": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "joinFailedHint": "Could not join \"{name}\". Check that the camera is on and nearby, the password, and Android's prompt.",
+  "@joinFailedHint": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "joinFailed": "Could not join \"{name}\": {detail}",
+  "@joinFailed": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "cameraNoAnswer": "Joined the Wi-Fi, but the camera didn't answer: {detail}",
+  "@cameraNoAnswer": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "cameraError": "Camera error: {detail}",
+  "@cameraError": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "wifiRefused": "The camera didn't accept the new Wi-Fi settings: {detail}",
+  "@wifiRefused": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "startRefused": "The camera refused to start recording: {detail}",
+  "@startRefused": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "stopRefused": "The camera refused to stop recording: {detail}",
+  "@stopRefused": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "startNoAnswer": "Told the camera to start recording, but it didn't answer: {detail}",
+  "@startNoAnswer": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "stopNoAnswer": "Told the camera to stop recording, but it didn't answer: {detail}",
+  "@stopNoAnswer": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "stillNotRecording": "The camera accepted, but isn't recording.",
+  "stillRecording": "The camera accepted, but is still recording.",
+  "listRefusedRecording": "The camera won't send its list while recording ({detail}).",
+  "@listRefusedRecording": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "listRefused": "The camera sent no file list ({detail}). It does this when the card is empty.",
+  "@listRefused": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "listRefusedStopped": "The camera sent no list, even with recording stopped.",
+  "listReadFailed": "Could not read the list: {detail}",
+  "@listReadFailed": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "recordingDidNotRestart": "Recording didn't restart: press the camera's record button.",
+  "recordingMaybeOff": "The camera may not be recording: press its record button. ({detail})",
+  "@recordingMaybeOff": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "recordingsTitle": "Recordings",
+  "nothingToDownload": "Nothing to download: already saved or queued.",
+  "downloadStartFailed": "Could not start the download: {detail}",
+  "@downloadStartFailed": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "pauseToListTitle": "Pause recording?",
+  "pauseToListBody": "Recording stops for a few seconds while the list is read, then restarts. The current clip becomes downloadable too.",
+  "pauseToListAction": "Pause and read",
+  "pauseToListDone": "List read. Recording again.",
+  "pauseToList": "Pause recording to read the list",
+  "deleteWhileDownloading": "Some of these are downloading. Cancel or wait first.",
+  "deleteFromCameraTitle": "{count, plural, =1{Delete 1 file from the camera?} other{Delete {count} files from the camera?}}",
+  "@deleteFromCameraTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cannotUndo": "This can't be undone.",
+  "allSavedOnPhone": "All are saved on this phone; those copies stay.",
+  "noneSavedOnPhone": "None are saved on this phone.",
+  "someNotSavedOnPhone": "{count} aren't saved on this phone.",
+  "@someNotSavedOnPhone": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "deletedFromCamera": "{count, plural, =1{Deleted 1 file from the camera.} other{Deleted {count} files from the camera.}}",
+  "@deletedFromCamera": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "deletedSomeFromCamera": "Deleted {done} of {total}. The camera refused the next: {detail}",
+  "@deletedSomeFromCamera": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      },
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "cancelSelection": "Cancel selection",
+  "selectAll": "Select all",
+  "deleteSelectedFromCamera": "Delete selected from camera",
+  "downloadSelected": "Download selected",
+  "selectedCount": "{count} selected",
+  "@selectedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "selectSeveral": "Select several",
+  "frontAndRear": "Front + rear",
+  "@frontAndRear": {
+    "description": "Filter: show both cameras."
+  },
+  "noMatch": "No recording matches \"{query}\".",
+  "@noMatch": {
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "readingCard": "Reading the card…",
+  "noRecordings": "No recordings on the card.",
+  "connectToSeeRecordings": "Connect to the camera to see its recordings.",
+  "deleteFromCamera": "Delete from camera",
+  "recordingNow": "Recording now. Available when this clip ends.",
+  "clockWasWrongAtStart": "The clock was wrong when this started: its file name says {time}.",
+  "@clockWasWrongAtStart": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "chipSize": "{lens} · {size}",
+  "@chipSize": {
+    "description": "A clip: which camera and its size, e.g. \"Front · 68 MB\".",
+    "placeholders": {
+      "lens": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "chipDownload": "Download",
+  "chipStillRecording": "Still recording",
+  "chipQueued": "{lens} · queued",
+  "@chipQueued": {
+    "placeholders": {
+      "lens": {
+        "type": "String"
+      }
+    }
+  },
+  "chipDownloading": "{lens} · {percent}%",
+  "@chipDownloading": {
+    "placeholders": {
+      "lens": {
+        "type": "String"
+      },
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "chipDownloadingStart": "{lens} · starting",
+  "@chipDownloadingStart": {
+    "placeholders": {
+      "lens": {
+        "type": "String"
+      }
+    }
+  },
+  "chipRetrying": "{lens} · retrying {percent}%",
+  "@chipRetrying": {
+    "placeholders": {
+      "lens": {
+        "type": "String"
+      },
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "chipRetryingStart": "{lens} · retrying",
+  "@chipRetryingStart": {
+    "placeholders": {
+      "lens": {
+        "type": "String"
+      }
+    }
+  },
+  "chipFailed": "{lens} · failed, tap to resume",
+  "@chipFailed": {
+    "placeholders": {
+      "lens": {
+        "type": "String"
+      }
+    }
+  },
+  "chipSaved": "{lens} · saved",
+  "@chipSaved": {
+    "placeholders": {
+      "lens": {
+        "type": "String"
+      }
+    }
+  },
+  "tapToCancel": "Tap to cancel",
+  "downloadFailed": "Download failed",
+  "queueRetrying": "Connection problem, retrying: {detail}",
+  "@queueRetrying": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "perSecond": "{size}/s",
+  "@perSecond": {
+    "description": "Download speed, e.g. \"1.3 MB/s\".",
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "timeLeft": "{span} left",
+  "@timeLeft": {
+    "placeholders": {
+      "span": {
+        "type": "String"
+      }
+    }
+  },
+  "queueDownloading": "Downloading {position} of {total} · {name}",
+  "@queueDownloading": {
+    "placeholders": {
+      "position": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "cancelAll": "Cancel all",
+  "oneDownloadFailed": "1 download failed: {detail}",
+  "@oneDownloadFailed": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "downloadsFailed": "{count} downloads failed",
+  "@downloadsFailed": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "resume": "Resume",
+  "dismiss": "Dismiss",
+  "fastTitle": "Fast download",
+  "fastHint": "Pauses recording while downloading. About 2× faster.",
+  "fastConfirmTitle": "Pause recording to download faster?",
+  "fastConfirmBody": "Nothing is recorded while files download. Recording restarts when the queue ends or is cancelled, or when the app next reconnects.\n\nOnly use this while parked.",
+  "turnOn": "Turn on",
+  "fastPausing": "Pausing recording for fast download…",
+  "fastPausedDownloading": "Recording PAUSED while files download. It restarts when they finish.",
+  "fastPausedIdle": "Recording PAUSED. It wasn't restarted after the last fast download.",
+  "fastResuming": "Restarting recording…",
+  "fastFailed": "Recording is still OFF: the app couldn't restart it.",
+  "fastFailedDetail": "Recording is still OFF ({detail}). Reconnect and try again, or press the camera's record button.",
+  "@fastFailedDetail": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "restartRecording": "Restart recording",
+  "savedTitle": "Saved on this phone",
+  "deleteFromPhoneTitle": "{count, plural, =1{Delete 1 file from this phone?} other{Delete {count} files from this phone?}}",
+  "@deleteFromPhoneTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "deleteFromPhoneBody": "Only the phone's copy is removed; the camera's stays.",
+  "deletedFromPhone": "Deleted from this phone.",
+  "deletedSomeFromPhone": "Deleted {done} of {total}. The rest couldn't be removed.",
+  "@deletedSomeFromPhone": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "lookingForSaved": "Looking for saved clips…",
+  "nothingSaved": "Nothing saved yet. Downloaded recordings appear here and in your gallery (Movies/nCAM).",
+  "noSavedMatch": "No saved recording matches \"{query}\".\nTry a name, a date such as \"17 Nov\" or a time such as \"19:22\".",
+  "@noSavedMatch": {
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "nameRecording": "Name recording",
+  "renameRecording": "Rename recording",
+  "nameLabel": "Name",
+  "nameHint": "e.g. Near miss on the A1",
+  "removeName": "Remove name",
+  "nameMenu": "Name…",
+  "renameMenu": "Rename…",
+  "deleteFromPhone": "Delete from this phone",
+  "clipNotSaved": "This clip isn't saved on the phone.",
+  "clipPlayFailed": "This clip could not be played: {detail}",
+  "@clipPlayFailed": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "liveTitle": "Live view",
+  "fps": "{fps} fps",
+  "@fps": {
+    "description": "Pictures per second.",
+    "placeholders": {
+      "fps": {
+        "type": "int"
+      }
+    }
+  },
+  "liveStarting": "Starting live view…",
+  "liveStoppedShort": "Live view stopped.",
+  "liveStopped": "Live view stopped: {detail}",
+  "@liveStopped": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "liveStreamClosed": "the camera closed the stream",
+  "@liveStreamClosed": {
+    "description": "Why live view stopped; follows \"Live view stopped: \"."
+  },
+  "liveConnectionLost": "Connection lost. Reconnecting…",
+  "liveRestarting": "Restarting the connection…",
+  "liveReconnecting": "Reconnecting…",
+  "liveNoPicture": "The camera isn't sending a picture.",
+  "viewNumber": "View {number}",
+  "@viewNumber": {
+    "description": "A camera view without a known name.",
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "viewSwitchFailed": "Could not switch view: {detail}",
+  "@viewSwitchFailed": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "pipTooltip": "Picture-in-picture",
+  "pipUnavailable": "Picture-in-picture isn't available. Allow it for nCAM in Android settings.",
+  "logReadFailed": "Could not read the log: {detail}",
+  "@logReadFailed": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "reload": "Reload",
+  "saveToDownloads": "Save to Downloads",
+  "logSaved": "Saved to Downloads as {name}",
+  "@logSaved": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "logSaveFailed": "Could not save the log: {detail}",
+  "@logSaveFailed": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "copyAll": "Copy all",
+  "logCopied": "Log copied.",
+  "clear": "Clear",
+  "logEmpty": "Nothing logged yet.",
+  "sectionApp": "App",
+  "sectionCamera": "Camera",
+  "sectionWifi": "Wi-Fi",
+  "sectionStorage": "Storage",
+  "sectionDevice": "Device",
+  "colours": "Colours",
+  "appearance": "Appearance",
+  "colorWallpaper": "Wallpaper",
+  "@colorWallpaper": {
+    "description": "Colours taken from the phone's wallpaper."
+  },
+  "colorBlue": "Blue",
+  "colorTeal": "Teal",
+  "colorGreen": "Green",
+  "colorOrange": "Orange",
+  "colorRed": "Red",
+  "colorPurple": "Purple",
+  "modeSystem": "Follow system",
+  "modeLight": "Light",
+  "modeDark": "Dark",
+  "modeBlack": "Pure black",
+  "@modeBlack": {
+    "description": "Dark mode with true black backgrounds."
+  },
+  "wallpaperNote": "Wallpaper colours need Android 12 or later; otherwise blue is used.",
+  "cameraIsRecording": "The camera is recording",
+  "cameraIsRecordingHint": "If a change stops it, the app restarts recording.",
+  "autoConnect": "Connect on start-up",
+  "autoConnectHint": "Join the saved camera when the app opens.",
+  "syncOnConnect": "Sync time on connect",
+  "syncOnConnectHint": "Set the camera clock to the phone's.",
+  "autoPip": "Auto picture-in-picture",
+  "autoPipHint": "Float video when you leave the app.",
+  "recordButton": "Record button",
+  "recordButtonHint": "Side of the dock",
+  "sideLeft": "Left",
+  "sideRight": "Right",
+  "connectToChangeSettings": "Connect on the home page to change camera settings.",
+  "readingSettings": "Reading settings…",
+  "settingsReadFailed": "Could not read the settings",
+  "otherValues": "Other values (read-only)",
+  "otherValuesHint": "Reported by the camera with no choices.",
+  "settingNumber": "Setting {id}",
+  "@settingNumber": {
+    "description": "A camera setting without a known name.",
+    "placeholders": {
+      "id": {
+        "type": "int"
+      }
+    }
+  },
+  "fixedOnCamera": "Fixed on this camera",
+  "changingSetting": "Changing setting…",
+  "changeWifi": "Change Wi-Fi name and password",
+  "changeWifiHint": "The camera restarts its Wi-Fi; the app reconnects.",
+  "changingWifi": "Changing the camera's Wi-Fi…",
+  "wifiChanged": "Connected to \"{name}\" with the new password.",
+  "@wifiChanged": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "sdCard": "SD card",
+  "formatSdCard": "Format SD card",
+  "formatSdCardHint": "Erases every recording on the camera.",
+  "formatTitle": "Format the SD card?",
+  "formatBody": "Erases every recording on the camera; this can't be undone. Clips saved on this phone are kept. Recording pauses, then restarts.",
+  "formatAction": "Erase everything",
+  "formatting": "Formatting the card…",
+  "restoreFactory": "Restore factory settings",
+  "resetTitle": "Restore factory settings?",
+  "resetBody": "Camera settings return to their defaults. If the Wi-Fi name and password reset too, reconnect with the defaults.",
+  "resetAction": "Reset camera",
+  "resetting": "Resetting the camera…",
+  "wifiDialogTitle": "Camera Wi-Fi",
+  "wifiName": "Wi-Fi name",
+  "newPassword": "New password",
+  "wifiNameRule": "Name: 1–32 letters, digits or symbols, no spaces.",
+  "wifiPasswordRule": "Password: 8–63 letters, digits or symbols, no spaces.",
+  "wifiPasswordWarning": "Write it down: if it's lost, only the camera's reset button gets you back in.",
+  "change": "Change",
+  "settingPhotoSize": "Photo size",
+  "settingVideoResolution": "Video resolution",
+  "settingExposure": "Exposure",
+  "settingRecordAudio": "Record audio",
+  "settingAutoPowerOff": "Auto power off",
+  "settingLoopRecording": "Loop recording",
+  "settingGSensor": "G-sensor",
+  "settingDateStamp": "Date stamp",
+  "settingWdr": "WDR",
+  "@settingWdr": {
+    "description": "Wide dynamic range."
+  },
+  "settingMotionDetection": "Motion detection",
+  "settingAutoRecording": "Auto recording",
+  "settingLanguage": "Language",
+  "@settingLanguage": {
+    "description": "The camera's own menu language."
+  },
+  "settingTvMode": "TV mode",
+  "optionMinutes": "{count} min",
+  "@optionMinutes": {
+    "description": "A setting choice in minutes.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "optionOn": "On",
+  "optionOff": "Off",
+  "recordingRestarted": "Recording stopped for this and was restarted.",
+  "recordingNotRestarted": "Recording stopped and did NOT restart. Press the camera's record button.",
+  "changeRefusedRecording": "The camera refused the change ({detail}). It may only accept it when not recording.",
+  "@changeRefusedRecording": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "changeRefused": "The camera refused the change ({detail}).",
+  "@changeRefused": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "cameraUnreachable": "Could not reach the camera: {detail}",
+  "@cameraUnreachable": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "formatRefused": "The camera refused to format the card ({detail}).",
+  "@formatRefused": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "formatDone": "The card was formatted.",
+  "recordingRestartedShort": "Recording restarted.",
+  "formatFailed": "Formatting went wrong: {detail}. Check that the camera is recording.",
+  "@formatFailed": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "resetDone": "Factory settings restored. If the camera's Wi-Fi reset too, enter the defaults on the home page.",
+  "resetRefused": "The camera refused the reset ({detail}).",
+  "@resetRefused": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "resetUnconfirmed": "Reset sent, but the camera didn't confirm: {detail}",
+  "@resetUnconfirmed": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  }
+}

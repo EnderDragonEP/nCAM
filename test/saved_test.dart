@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:ncam/l10n/l10n.dart';
 import 'package:ncam/camera/fake_transport.dart';
 import 'package:ncam/camera/models.dart';
 import 'package:ncam/camera/recordings.dart';
@@ -178,7 +179,8 @@ void main() {
       CameraFile f(String name) =>
           CameraFile(name: name, path: name, size: 1, writeTime: null);
       final r = Recording(front: f(front), rear: f(rear), beingWritten: false);
-      bool hit(String q, [String? name]) => recordingMatches(r, name, q);
+      bool hit(String q, [String? name]) =>
+          recordingMatches(english, r, name, q);
 
       expect(hit(''), isTrue);
       expect(hit('nov 11'), isTrue);

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/l10n.dart';
 import '../state/live.dart';
 import '../state/pip.dart';
 
@@ -16,6 +17,7 @@ class LiveScreen extends ConsumerWidget {
     final controller = ref.read(liveProvider.notifier);
     final frame = live.frame;
     final view = live.viewIndex;
+    final l = context.l10n;
 
     return PipHost(
       // Closing the floating window ends the live stream.
@@ -27,7 +29,7 @@ class LiveScreen extends ConsumerWidget {
           backgroundColor: Colors.black,
           foregroundColor: Colors.white,
           leading: onBack == null ? null : BackButton(onPressed: onBack),
-          title: const Text('Live view'),
+          title: Text(l.liveTitle),
           actions: [
             const PipButton(color: Colors.white),
             if (live.status == LiveStatus.playing)
@@ -35,7 +37,7 @@ class LiveScreen extends ConsumerWidget {
                 child: Padding(
                   padding: const EdgeInsets.only(right: 16),
                   child: Text(
-                    '${live.framesPerSecond} fps',
+                    l.fps(live.framesPerSecond),
                     style: const TextStyle(color: Colors.white70),
                   ),
                 ),
@@ -67,7 +69,7 @@ class LiveScreen extends ConsumerWidget {
                             ),
                             const SizedBox(height: 12),
                             Text(
-                              live.message ?? 'Starting live view…',
+                              live.message?.call(l) ?? l.liveStarting,
                               style: const TextStyle(color: Colors.white),
                             ),
                           ],
@@ -81,14 +83,14 @@ class LiveScreen extends ConsumerWidget {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                live.message ?? 'Live view stopped.',
+                                live.message?.call(l) ?? l.liveStoppedShort,
                                 textAlign: TextAlign.center,
                                 style: const TextStyle(color: Colors.white),
                               ),
                               const SizedBox(height: 12),
                               FilledButton(
                                 onPressed: controller.retry,
-                                child: const Text('Try again'),
+                                child: Text(l.tryAgain),
                               ),
                             ],
                           ),
@@ -109,10 +111,10 @@ class LiveScreen extends ConsumerWidget {
                             value: i,
                             // Checked on the real camera.
                             label: Text(switch (i) {
-                              0 => 'Front',
-                              1 => 'Rear',
-                              2 => 'Both',
-                              _ => 'View ${i + 1}',
+                              0 => l.front,
+                              1 => l.rear,
+                              2 => l.both,
+                              _ => l.viewNumber(i + 1),
                             }),
                           ),
                       ],
@@ -123,9 +125,7 @@ class LiveScreen extends ConsumerWidget {
                         final error = await controller.setView(s.first);
                         if (error != null) {
                           messenger.showSnackBar(
-                            SnackBar(
-                              content: Text('Could not switch view: $error'),
-                            ),
+                            SnackBar(content: Text(l.viewSwitchFailed(error))),
                           );
                         }
                       },

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../camera/models.dart';
 import '../camera/recordings.dart';
+import '../l10n/l10n.dart';
 import '../state/clip_names.dart';
 import '../state/downloads.dart';
 import 'clip_thumbnail.dart';
@@ -34,23 +35,21 @@ class _SavedScreenState extends ConsumerState<SavedScreen> {
 
   Future<void> _delete(Recording r) async {
     final files = r.files;
-    final what = files.length == 1 ? '1 file' : '${files.length} files';
     final messenger = ScaffoldMessenger.of(context);
+    final l = context.l10n;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Delete $what from this phone?'),
-        content: const Text(
-          'Only the copy on the phone is removed. Anything still on the camera stays there.',
-        ),
+        title: Text(l.deleteFromPhoneTitle(files.length)),
+        content: Text(l.deleteFromPhoneBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(l.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete'),
+            child: Text(l.delete),
           ),
         ],
       ),
@@ -70,8 +69,8 @@ class _SavedScreenState extends ConsumerState<SavedScreen> {
       SnackBar(
         content: Text(
           gone.length == files.length
-              ? 'Deleted from this phone.'
-              : 'Deleted ${gone.length} of ${files.length}. The rest could not be removed.',
+              ? l.deletedFromPhone
+              : l.deletedSomeFromPhone(gone.length, files.length),
         ),
       ),
     );
@@ -91,18 +90,19 @@ class _SavedScreenState extends ConsumerState<SavedScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l = context.l10n;
     final loading = ref.watch(localFilesProvider).isLoading;
     final all = ref.watch(savedRecordingsProvider);
     final names = ref.watch(clipNamesProvider);
     final shown = [
       for (final r in all)
-        if (recordingMatches(r, clipName(names, r), _query)) r,
+        if (recordingMatches(l, r, clipName(names, r), _query)) r,
     ];
 
     final items = <Widget>[];
     String? lastDay;
     for (final r in shown) {
-      final day = r.time == null ? 'Unknown date' : formatDay(r.time!);
+      final day = r.time == null ? l.unknownDate : formatDay(l, r.time!);
       if (day != lastDay) {
         lastDay = day;
         items.add(
@@ -134,10 +134,7 @@ class _SavedScreenState extends ConsumerState<SavedScreen> {
         child: Padding(
           padding: const EdgeInsets.all(32),
           child: Text(
-            loading
-                ? 'Looking for saved clips…'
-                : 'Nothing saved yet. Download recordings from the camera and '
-                      'they will appear here and in your gallery (Movies/nCAM).',
+            loading ? l.lookingForSaved : l.nothingSaved,
             textAlign: TextAlign.center,
           ),
         ),
@@ -146,12 +143,7 @@ class _SavedScreenState extends ConsumerState<SavedScreen> {
       body = Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
-          child: Text(
-            'No saved recording matches "$_query".\n'
-            'Search by name, or by date and time such as "17 Nov", '
-            '"2026-11-17" or "19:22".',
-            textAlign: TextAlign.center,
-          ),
+          child: Text(l.noSavedMatch(_query), textAlign: TextAlign.center),
         ),
       );
     } else {
@@ -166,7 +158,7 @@ class _SavedScreenState extends ConsumerState<SavedScreen> {
         leading: widget.onBack == null
             ? null
             : BackButton(onPressed: widget.onBack),
-        title: const Text('Saved on this phone'),
+        title: Text(l.savedTitle),
         bottom: all.isEmpty
             ? null
             : PreferredSize(
@@ -175,14 +167,14 @@ class _SavedScreenState extends ConsumerState<SavedScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                   child: SearchBar(
                     controller: _search,
-                    hintText: 'Search names and dates',
+                    hintText: l.searchHint,
                     leading: const Icon(Icons.search),
                     elevation: const WidgetStatePropertyAll(0),
                     onChanged: _setQuery,
                     trailing: [
                       if (_query.isNotEmpty)
                         IconButton(
-                          tooltip: 'Clear search',
+                          tooltip: l.clearSearch,
                           icon: const Icon(Icons.close),
                           onPressed: () {
                             _search.clear();
@@ -220,10 +212,9 @@ class _NameDialogState extends State<_NameDialog> {
   @override
   Widget build(BuildContext context) {
     final time = widget.recording.time;
+    final l = context.l10n;
     return AlertDialog(
-      title: Text(
-        widget.current == null ? 'Name recording' : 'Rename recording',
-      ),
+      title: Text(widget.current == null ? l.nameRecording : l.renameRecording),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -238,9 +229,9 @@ class _NameDialogState extends State<_NameDialog> {
             autofocus: true,
             maxLength: clipNameMaxLength,
             textCapitalization: TextCapitalization.sentences,
-            decoration: const InputDecoration(
-              labelText: 'Name',
-              hintText: 'For example: Near miss on the A1',
+            decoration: InputDecoration(
+              labelText: l.nameLabel,
+              hintText: l.nameHint,
             ),
             onSubmitted: (v) => Navigator.pop(context, v),
           ),
@@ -250,15 +241,15 @@ class _NameDialogState extends State<_NameDialog> {
         if (widget.current != null)
           TextButton(
             onPressed: () => Navigator.pop(context, ''),
-            child: const Text('Remove name'),
+            child: Text(l.removeName),
           ),
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: Text(l.cancel),
         ),
         FilledButton(
           onPressed: () => Navigator.pop(context, _text.text),
-          child: const Text('Save'),
+          child: Text(l.save),
         ),
       ],
     );
@@ -286,6 +277,7 @@ class _SavedTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l = context.l10n;
     final r = recording;
     final first = r.files.first;
     final time = r.time;
@@ -317,11 +309,11 @@ class _SavedTile extends StatelessWidget {
                         ActionChip(
                           avatar: const Icon(Icons.play_arrow, size: 18),
                           label: Text(
-                            '${switch (f.lens) {
-                              Lens.front => 'Front',
-                              Lens.rear => 'Rear',
+                            l.chipSize(switch (f.lens) {
+                              Lens.front => l.front,
+                              Lens.rear => l.rear,
                               Lens.unknown => f.name,
-                            }} · ${formatBytes(f.size)}',
+                            }, formatBytes(f.size)),
                           ),
                           onPressed: f.isVideo
                               ? () => _play(context, f.lens)
@@ -333,18 +325,15 @@ class _SavedTile extends StatelessWidget {
               ),
             ),
             PopupMenuButton<String>(
-              tooltip: 'More',
+              tooltip: l.more,
               onSelected: (action) =>
                   action == 'rename' ? onRename() : onDelete(),
               itemBuilder: (context) => [
                 PopupMenuItem(
                   value: 'rename',
-                  child: Text(name == null ? 'Name…' : 'Rename…'),
+                  child: Text(name == null ? l.nameMenu : l.renameMenu),
                 ),
-                const PopupMenuItem(
-                  value: 'delete',
-                  child: Text('Delete from this phone'),
-                ),
+                PopupMenuItem(value: 'delete', child: Text(l.deleteFromPhone)),
               ],
             ),
           ],

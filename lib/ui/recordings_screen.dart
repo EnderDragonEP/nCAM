@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../camera/models.dart';
 import '../camera/recordings.dart';
 import '../downloads/downloader.dart';
+import '../l10n/l10n.dart';
 import '../state/clip_names.dart';
 import '../state/downloads.dart';
 import '../state/session.dart';
@@ -79,21 +80,48 @@ class _RecordingsScreenState extends ConsumerState<RecordingsScreen> {
         if (resolver.view(f).downloadable) downloadRequestFor(f),
     ];
     final messenger = ScaffoldMessenger.of(context);
+    final l = context.l10n;
     if (requests.isEmpty) {
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Text('Nothing to download: already saved or in the queue.'),
-        ),
-      );
+      messenger.showSnackBar(SnackBar(content: Text(l.nothingToDownload)));
       return;
     }
     try {
       await ref.read(downloaderProvider).enqueue(requests);
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(content: Text('Could not start the download: $e')),
+        SnackBar(content: Text(l.downloadStartFailed('$e'))),
       );
     }
+  }
+
+  /// Some days the camera sends no list at all while it records.
+  Future<void> _pauseToList() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final l = context.l10n;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l.pauseToListTitle),
+        content: Text(l.pauseToListBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(l.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(l.pauseToListAction),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final problem = await ref
+        .read(sessionProvider.notifier)
+        .refreshPausingRecording();
+    messenger.showSnackBar(
+      SnackBar(content: Text(problem?.call(l) ?? l.pauseToListDone)),
+    );
   }
 
   /// Asks, then deletes the visible files of [recordings] from the camera. Returns false
@@ -115,36 +143,30 @@ class _RecordingsScreenState extends ConsumerState<RecordingsScreen> {
         .where((f) => resolver.view(f).status != FileStatus.saved)
         .length;
     final messenger = ScaffoldMessenger.of(context);
+    final l = context.l10n;
     if (busy > 0) {
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Some of these are downloading. Cancel the download or wait for it first.',
-          ),
-        ),
-      );
+      messenger.showSnackBar(SnackBar(content: Text(l.deleteWhileDownloading)));
       return false;
     }
-    final what = files.length == 1 ? '1 file' : '${files.length} files';
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Delete $what from the camera?'),
+        title: Text(l.deleteFromCameraTitle(files.length)),
         content: Text(
           [
-            'This cannot be undone.',
+            l.cannotUndo,
             if (unsaved == 0)
-              'All of them are saved on this phone; those copies are kept.'
+              l.allSavedOnPhone
             else if (unsaved == files.length)
-              'None of them has been saved to this phone.'
+              l.noneSavedOnPhone
             else
-              '$unsaved of them have not been saved to this phone.',
+              l.someNotSavedOnPhone(unsaved),
           ].join('\n\n'),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(l.cancel),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
@@ -152,7 +174,7 @@ class _RecordingsScreenState extends ConsumerState<RecordingsScreen> {
               foregroundColor: Theme.of(context).colorScheme.onError,
             ),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete'),
+            child: Text(l.delete),
           ),
         ],
       ),
@@ -163,8 +185,12 @@ class _RecordingsScreenState extends ConsumerState<RecordingsScreen> {
       SnackBar(
         content: Text(
           result.error == null
-              ? 'Deleted ${result.deleted == 1 ? '1 file' : '${result.deleted} files'} from the camera.'
-              : 'Deleted ${result.deleted} of ${files.length}. The camera refused the next one: ${result.error}',
+              ? l.deletedFromCamera(result.deleted)
+              : l.deletedSomeFromCamera(
+                  result.deleted,
+                  files.length,
+                  result.error!,
+                ),
         ),
       ),
     );
@@ -176,6 +202,7 @@ class _RecordingsScreenState extends ConsumerState<RecordingsScreen> {
     ref.watch(recordingGuardProvider);
     final session = ref.watch(sessionProvider);
     final names = ref.watch(clipNamesProvider);
+    final l = context.l10n;
     // Selected recordings stay selected while a search hides them.
     final recordings = ref
         .watch(recordingsProvider)
@@ -183,7 +210,7 @@ class _RecordingsScreenState extends ConsumerState<RecordingsScreen> {
         .toList();
     final shown = [
       for (final r in recordings)
-        if (recordingMatches(r, clipName(names, r), _query)) r,
+        if (recordingMatches(l, r, clipName(names, r), _query)) r,
     ];
     final resolver = ref.watch(fileStatusProvider);
     final jobs = ref.watch(downloadJobsProvider).value ?? const [];
@@ -191,7 +218,7 @@ class _RecordingsScreenState extends ConsumerState<RecordingsScreen> {
     final items = <Widget>[];
     String? lastDay;
     for (final r in shown) {
-      final day = r.time == null ? 'Unknown date' : formatDay(r.time!);
+      final day = r.time == null ? l.unknownDate : formatDay(l, r.time!);
       if (day != lastDay) {
         lastDay = day;
         items.add(_DayHeader(day));
@@ -230,14 +257,14 @@ class _RecordingsScreenState extends ConsumerState<RecordingsScreen> {
         appBar: _selecting
             ? AppBar(
                 leading: IconButton(
-                  tooltip: 'Cancel selection',
+                  tooltip: l.cancelSelection,
                   onPressed: _stopSelecting,
                   icon: const Icon(Icons.close),
                 ),
-                title: Text('${_selected.length} selected'),
+                title: Text(l.selectedCount(_selected.length)),
                 actions: [
                   IconButton(
-                    tooltip: 'Select all',
+                    tooltip: l.selectAll,
                     onPressed: () => setState(() {
                       _selected.addAll([
                         for (final r in shown)
@@ -247,7 +274,7 @@ class _RecordingsScreenState extends ConsumerState<RecordingsScreen> {
                     icon: const Icon(Icons.select_all),
                   ),
                   IconButton(
-                    tooltip: 'Delete selected from camera',
+                    tooltip: l.deleteSelectedFromCamera,
                     onPressed: () {
                       final chosen = [
                         for (final r in recordings)
@@ -260,7 +287,7 @@ class _RecordingsScreenState extends ConsumerState<RecordingsScreen> {
                     icon: const Icon(Icons.delete_outline),
                   ),
                   IconButton(
-                    tooltip: 'Download selected',
+                    tooltip: l.downloadSelected,
                     onPressed: () {
                       final files = [
                         for (final r in recordings)
@@ -277,24 +304,24 @@ class _RecordingsScreenState extends ConsumerState<RecordingsScreen> {
                 leading: widget.onBack == null
                     ? null
                     : BackButton(onPressed: widget.onBack),
-                title: const Text('Recordings'),
+                title: Text(l.recordingsTitle),
                 actions: [
                   IconButton(
-                    tooltip: 'Search',
+                    tooltip: l.search,
                     onPressed: recordings.isEmpty || _searching
                         ? null
                         : () => setState(() => _searching = true),
                     icon: const Icon(Icons.search),
                   ),
                   IconButton(
-                    tooltip: 'Select several',
+                    tooltip: l.selectSeveral,
                     onPressed: recordings.isEmpty
                         ? null
                         : () => setState(() => _selecting = true),
                     icon: const Icon(Icons.checklist),
                   ),
                   IconButton(
-                    tooltip: 'Refresh',
+                    tooltip: l.refresh,
                     onPressed: session.busy || !session.connected
                         ? null
                         : ref.read(sessionProvider.notifier).refresh,
@@ -316,13 +343,13 @@ class _RecordingsScreenState extends ConsumerState<RecordingsScreen> {
                 child: SearchBar(
                   controller: _search,
                   autoFocus: true,
-                  hintText: 'Search names and dates',
+                  hintText: l.searchHint,
                   leading: const Icon(Icons.search),
                   elevation: const WidgetStatePropertyAll(0),
                   onChanged: (text) => setState(() => _query = text.trim()),
                   trailing: [
                     IconButton(
-                      tooltip: 'Close search',
+                      tooltip: l.closeSearch,
                       onPressed: _closeSearch,
                       icon: const Icon(Icons.close),
                     ),
@@ -332,13 +359,13 @@ class _RecordingsScreenState extends ConsumerState<RecordingsScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
               child: SegmentedButton<LensFilter>(
-                segments: const [
+                segments: [
                   ButtonSegment(
                     value: LensFilter.both,
-                    label: Text('Front + rear'),
+                    label: Text(l.frontAndRear),
                   ),
-                  ButtonSegment(value: LensFilter.front, label: Text('Front')),
-                  ButtonSegment(value: LensFilter.rear, label: Text('Rear')),
+                  ButtonSegment(value: LensFilter.front, label: Text(l.front)),
+                  ButtonSegment(value: LensFilter.rear, label: Text(l.rear)),
                 ],
                 selected: {_filter},
                 showSelectedIcon: false,
@@ -354,17 +381,32 @@ class _RecordingsScreenState extends ConsumerState<RecordingsScreen> {
                   ? Center(
                       child: Padding(
                         padding: const EdgeInsets.all(32),
-                        child: Text(
-                          recordings.isNotEmpty
-                              ? 'No recording matches "$_query".'
-                              : session.filesError != null
-                              ? session.filesError!
-                              : session.connected
-                              ? (session.busy
-                                    ? 'Reading the card…'
-                                    : 'No recordings on the card.')
-                              : 'Connect to the camera to see its recordings.',
-                          textAlign: TextAlign.center,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              recordings.isNotEmpty
+                                  ? l.noMatch(_query)
+                                  : session.filesError != null
+                                  ? session.filesError!(l)
+                                  : session.connected
+                                  ? (session.busy
+                                        ? l.readingCard
+                                        : l.noRecordings)
+                                  : l.connectToSeeRecordings,
+                              textAlign: TextAlign.center,
+                            ),
+                            if (recordings.isEmpty &&
+                                session.filesError != null &&
+                                (session.status?.isRecording ?? false)) ...[
+                              const SizedBox(height: 16),
+                              FilledButton.tonalIcon(
+                                onPressed: session.busy ? null : _pauseToList,
+                                icon: const Icon(Icons.pause_circle_outline),
+                                label: Text(l.pauseToList),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                     )
@@ -466,12 +508,13 @@ class _RecordingTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l = context.l10n;
     final r = recording;
     final time = r.time;
     final length = r.length;
     final title = [
       time == null ? r.files.first.name : formatClock(time),
-      if (length != null) formatSpan(length),
+      if (length != null) formatSpan(l, length),
     ].join(' · ');
 
     return InkWell(
@@ -535,14 +578,14 @@ class _RecordingTile extends StatelessWidget {
                         SizedBox(
                           height: 28,
                           child: PopupMenuButton<String>(
-                            tooltip: 'More',
+                            tooltip: l.more,
                             padding: EdgeInsets.zero,
                             iconSize: 20,
                             onSelected: (_) => onDelete(),
-                            itemBuilder: (context) => const [
+                            itemBuilder: (context) => [
                               PopupMenuItem(
                                 value: 'delete',
-                                child: Text('Delete from camera'),
+                                child: Text(l.deleteFromCamera),
                               ),
                             ],
                           ),
@@ -557,14 +600,10 @@ class _RecordingTile extends StatelessWidget {
                       ),
                     ),
                   if (r.beingWritten)
-                    Text(
-                      'Recording now. Available when this clip is finished.',
-                      style: theme.textTheme.bodySmall,
-                    ),
+                    Text(l.recordingNow, style: theme.textTheme.bodySmall),
                   if (r.nameDateSuspect && r.start != null)
                     Text(
-                      'The camera\'s clock was wrong when this clip started: its '
-                      'file name says ${formatDateTime(r.start!)}.',
+                      l.clockWasWrongAtStart(formatDateTime(r.start!)),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.error,
                       ),
@@ -598,32 +637,33 @@ class _FileChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l = context.l10n;
     final lens = switch (view.file.lens) {
-      Lens.front => 'Front',
-      Lens.rear => 'Rear',
+      Lens.front => l.front,
+      Lens.rear => l.rear,
       Lens.unknown => view.file.name,
     };
     final size = formatBytes(view.file.size);
     final job = view.job;
     final percent = job?.fraction == null
-        ? ''
-        : ' ${(job!.fraction! * 100).floor()}%';
+        ? null
+        : (job!.fraction! * 100).floor();
 
     final (Widget avatar, String label, String tooltip) = switch (view.status) {
       FileStatus.onCamera => (
         const Icon(Icons.download, size: 18),
-        '$lens · $size',
-        'Download',
+        l.chipSize(lens, size),
+        l.chipDownload,
       ),
       FileStatus.writing => (
         const Icon(Icons.fiber_manual_record, size: 18, color: Colors.red),
-        '$lens · $size',
-        'Still recording',
+        l.chipSize(lens, size),
+        l.chipStillRecording,
       ),
       FileStatus.queued => (
         const Icon(Icons.schedule, size: 18),
-        '$lens · queued',
-        'Tap to cancel',
+        l.chipQueued(lens),
+        l.tapToCancel,
       ),
       FileStatus.running => (
         SizedBox(
@@ -634,23 +674,27 @@ class _FileChip extends StatelessWidget {
             value: job?.fraction,
           ),
         ),
-        '$lens ·$percent',
-        'Tap to cancel',
+        percent == null
+            ? l.chipDownloadingStart(lens)
+            : l.chipDownloading(lens, percent),
+        l.tapToCancel,
       ),
       FileStatus.waiting => (
         const Icon(Icons.wifi_off, size: 18),
-        '$lens · retrying$percent',
-        'Tap to cancel',
+        percent == null
+            ? l.chipRetryingStart(lens)
+            : l.chipRetrying(lens, percent),
+        l.tapToCancel,
       ),
       FileStatus.failed => (
         Icon(Icons.error_outline, size: 18, color: scheme.error),
-        '$lens · failed, tap to resume',
-        job?.error ?? 'Download failed',
+        l.chipFailed(lens),
+        job?.error ?? l.downloadFailed,
       ),
       FileStatus.saved => (
         Icon(Icons.check_circle, size: 18, color: scheme.primary),
-        '$lens · saved',
-        'Play',
+        l.chipSaved(lens),
+        l.play,
       ),
     };
     return Tooltip(
@@ -676,6 +720,7 @@ class _QueueBar extends ConsumerWidget {
     if (active.isEmpty && failed.isEmpty) return const SizedBox.shrink();
 
     final theme = Theme.of(context);
+    final l = context.l10n;
     final downloader = ref.read(downloaderProvider);
     final List<Widget> children;
 
@@ -691,19 +736,25 @@ class _QueueBar extends ConsumerWidget {
       );
       final speed = current.bytesPerSecond;
       final detail = current.state == DownloadState.waiting
-          ? 'Connection problem, retrying: ${current.error ?? ''}'
+          ? l.queueRetrying(current.error ?? '')
           : [
-              if (speed > 0) '${formatBytes(speed)}/s',
+              if (speed > 0) l.perSecond(formatBytes(speed)),
               if (speed > 0)
-                '${formatSpan(Duration(seconds: remaining ~/ speed))} left',
-              if (speed <= 0) 'Starting…',
+                l.timeLeft(
+                  formatSpan(l, Duration(seconds: remaining ~/ speed)),
+                ),
+              if (speed <= 0) l.starting,
             ].join(' · ');
       children = [
         Row(
           children: [
             Expanded(
               child: Text(
-                'Downloading ${done + 1} of ${done + active.length} · ${current.name}',
+                l.queueDownloading(
+                  done + 1,
+                  done + active.length,
+                  current.name,
+                ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.bodyMedium,
@@ -711,7 +762,7 @@ class _QueueBar extends ConsumerWidget {
             ),
             TextButton(
               onPressed: () => downloader.cancel(),
-              child: const Text('Cancel all'),
+              child: Text(l.cancelAll),
             ),
           ],
         ),
@@ -726,8 +777,8 @@ class _QueueBar extends ConsumerWidget {
             Expanded(
               child: Text(
                 failed.length == 1
-                    ? '1 download failed: ${failed.first.error ?? ''}'
-                    : '${failed.length} downloads failed',
+                    ? l.oneDownloadFailed(failed.first.error ?? '')
+                    : l.downloadsFailed(failed.length),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -738,11 +789,11 @@ class _QueueBar extends ConsumerWidget {
                   downloader.retry(j.id);
                 }
               },
-              child: const Text('Resume'),
+              child: Text(l.resume),
             ),
             TextButton(
               onPressed: downloader.clearFinished,
-              child: const Text('Dismiss'),
+              child: Text(l.dismiss),
             ),
           ],
         ),

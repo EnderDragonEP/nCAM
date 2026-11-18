@@ -152,8 +152,21 @@ class NovatekCameraApi implements CameraApi {
       (await _ok(cmdRecordingTime)).intValue;
 
   @override
-  Future<List<CameraFile>> listFiles() async =>
-      parseFileList(await _body(cmdFileList));
+  Future<List<CameraFile>> listFiles() async {
+    try {
+      return parseFileList(await _body(cmdFileList));
+    } on FileListUnavailable {
+      // While it records, this camera often refuses the list (status -3), but its web
+      // server still shows the recordings folder as a page.
+      final reply = await _transport.get('$baseUrl$recordingsFolder');
+      final files = parseFolderPage(reply.text);
+      if (files == null) rethrow;
+      return files;
+    }
+  }
+
+  /// Where the camera keeps its recordings (measured; nothing else is on the card).
+  static const recordingsFolder = '/Novatek/Movie/';
 
   @override
   Future<String> liveViewUrl() async {

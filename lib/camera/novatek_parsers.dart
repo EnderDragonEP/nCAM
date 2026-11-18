@@ -120,6 +120,60 @@ DateTime? parseCameraTime(String? s) {
   return DateTime(g(1), g(2), g(3), g(4), g(5), g(6));
 }
 
+final _folderRow = RegExp(
+  r'<tr><td><a href="([^"]+)"><b>([^<]+)</b></a><td align=\w+>\s*([^<]*?)\s*'
+  r'<td align=\w+>\s*([0-9/: ]+)',
+  caseSensitive: false,
+);
+final _pageSize = RegExp(
+  r'^(\d+)(?:\.(\d+))?\s*([KMGT]?B)$',
+  caseSensitive: false,
+);
+
+/// The page the camera's web server shows for a folder, such as `/Novatek/Movie/`:
+///
+///     <div id=folder>/Novatek/Movie</div> …
+///     <tr><td><a href="/Novatek/Movie/x.TS"><b>x.TS</b></a><td align=right> 231.33 MB
+///     <td align=right>2026/11/10 18:45:48
+///
+/// Sub-folders (`<i>folder</i>` instead of a size) are skipped. Sizes are rounded, so
+/// each file carries how far off its size may be. Returns null when [body] is not a
+/// folder page (the server answers missing paths with a "Page Not found" page).
+List<CameraFile>? parseFolderPage(String body) {
+  if (!body.contains('<div id=folder>')) return null;
+  final files = <CameraFile>[];
+  for (final m in _folderRow.allMatches(body)) {
+    final size = _pageSize.firstMatch(m.group(3)!.trim());
+    if (size == null) continue;
+    final unit = switch (size.group(3)!.toUpperCase()) {
+      'KB' => 1024,
+      'MB' => 1024 * 1024,
+      'GB' => 1024 * 1024 * 1024,
+      'TB' => 1024 * 1024 * 1024 * 1024,
+      _ => 1,
+    };
+    final decimals = size.group(2) ?? '';
+    final value = double.parse(
+      '${size.group(1)}.${decimals.isEmpty ? '0' : decimals}',
+    );
+    var step = unit.toDouble();
+    for (var i = 0; i < decimals.length; i++) {
+      step /= 10;
+    }
+    files.add(
+      CameraFile(
+        name: m.group(2)!.trim(),
+        path: m.group(1)!.replaceAll('&amp;', '&'),
+        size: (value * unit).round(),
+        // A whole step of the last digit, whether the page rounds or cuts off.
+        sizeSlack: step.ceil(),
+        writeTime: parseCameraTime(m.group(4)),
+      ),
+    );
+  }
+  return files;
+}
+
 /// Reply to command 3015: `<LIST><ALLFile><File>…</File></ALLFile>…</LIST>`.
 List<CameraFile> parseFileList(String body) {
   final doc = _parse(body);
@@ -129,14 +183,11 @@ List<CameraFile> parseFileList(String body) {
     // <Function><Cmd>3015</Cmd><Status>n</Status></Function>.
     final status = int.tryParse(_childText(root, 'Status') ?? '');
     if (root.name.local == 'Function' && status != null) {
-      throw FileListUnavailable(
-        'the camera answered the file list request with status $status',
-        status: status,
-      );
+      throw FileListUnavailable('status $status', status: status);
     }
     final start = body.trim().replaceAll(RegExp(r'\s+'), ' ');
     throw FileListUnavailable(
-      'unexpected reply to the file list request: '
+      'unexpected reply: '
       '${start.length > 120 ? '${start.substring(0, 120)}...' : start}',
     );
   }

@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:ncam/l10n/l10n.dart';
 import 'package:ncam/camera/fake_transport.dart';
 import 'package:ncam/camera/transport.dart';
 import 'package:ncam/state/credentials.dart';
@@ -117,7 +118,7 @@ void main() {
     await c.read(sessionProvider.notifier).connect('NoodleCam', 'wrong');
     final s = await settle(c);
     expect(s.link, LinkState.disconnected);
-    expect(s.error, contains('Could not join'));
+    expect(s.error!(english), contains('Could not join'));
     expect(await store.load(), isNull);
   });
 
@@ -149,8 +150,11 @@ void main() {
   });
 
   test('a camera that will not list files still connects and syncs', () async {
-    // Seen on the real camera: a status reply instead of a file list.
-    final fake = FakeCameraTransport()..fileListStatus = -256;
+    // Seen on the real camera: a status reply instead of a file list. With nothing on
+    // the card there is no folder page either.
+    final fake = FakeCameraTransport()
+      ..fileListStatus = -256
+      ..folderPageAvailable = false;
     final c = makeContainer(fake);
     await settle(c);
     await c.read(sessionProvider.notifier).connect('NoodleCam', 'secret');
@@ -160,7 +164,7 @@ void main() {
     expect(s.error, isNull);
     expect(s.status!.firmware, 'DVR52AFHW3_YL_V3.19_TS');
     expect(s.files, isEmpty);
-    expect(s.filesError, contains('status -256'));
+    expect(s.filesError!(english), contains('status -256'));
     expect(s.timeSync!.ok, isTrue);
     expect(fake.timeSet, '19:57:54');
 
@@ -171,6 +175,85 @@ void main() {
     expect(later.filesError, isNull);
     expect(later.files, hasLength(6));
   });
+
+  test('a list refused while recording is read from the folder page', () async {
+    // The camera from 12 Nov on: status -3 to every list request while recording.
+    final fake = FakeCameraTransport()..refuseListWhileRecording = true;
+    final c = makeContainer(fake);
+    await settle(c);
+    await c.read(sessionProvider.notifier).connect('NoodleCam', 'secret');
+    final s = await settle(c);
+
+    expect(s.filesError, isNull);
+    expect(s.files, hasLength(6));
+    expect(
+      fake.requests.where((u) => u.endsWith('/Novatek/Movie/')),
+      isNotEmpty,
+    );
+    // The clips being recorded are still spotted, though the page rounds sizes.
+    expect(s.writing, {
+      '/Novatek/Movie/2026_1011_195621_047A.TS',
+      '/Novatek/Movie/2026_1011_195621_048B.TS',
+    });
+    expect(fake.recordingSeconds, greaterThan(0));
+  });
+
+  test(
+    'with no list and no page, recording can be paused to read it',
+    () async {
+      final fake = FakeCameraTransport()
+        ..refuseListWhileRecording = true
+        ..folderPageAvailable = false;
+      final c = makeContainer(fake);
+      await settle(c);
+      await c.read(sessionProvider.notifier).connect('NoodleCam', 'secret');
+      var s = await settle(c);
+      expect(s.files, isEmpty);
+      expect(
+        s.filesError!(english),
+        contains("won't send its list while recording"),
+      );
+
+      fake.requests.clear();
+      final problem = await c
+          .read(sessionProvider.notifier)
+          .refreshPausingRecording();
+      s = await settle(c);
+      expect(problem, isNull);
+      expect(s.files, hasLength(6));
+      expect(s.filesError, isNull);
+      expect(s.status!.isRecording, isTrue);
+      expect(fake.recordingSeconds, greaterThan(0));
+      // Stopped, listed, started again, in that order.
+      final order = [
+        for (final u in fake.requests)
+          if (u.contains('cmd=2001') || u.contains('cmd=3015'))
+            u.split('cmd=').last,
+      ];
+      expect(order.first, '2001&par=0');
+      expect(order, contains('3015'));
+      expect(order.last, '2001&par=1');
+    },
+  );
+
+  test(
+    'pausing to read the list restarts recording even if it fails',
+    () async {
+      final fake = FakeCameraTransport()
+        ..fileListStatus = -3
+        ..folderPageAvailable = false;
+      final c = makeContainer(fake);
+      await settle(c);
+      await c.read(sessionProvider.notifier).connect('NoodleCam', 'secret');
+      await settle(c);
+      final problem = await c
+          .read(sessionProvider.notifier)
+          .refreshPausingRecording();
+      expect(problem!(english), contains('even with recording stopped'));
+      expect(fake.recordingSeconds, greaterThan(0));
+      expect(c.read(sessionProvider).busy, isFalse);
+    },
+  );
 
   test('manual sync sends the time again', () async {
     final fake = FakeCameraTransport();

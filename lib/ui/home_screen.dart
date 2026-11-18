@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../camera/models.dart';
 import '../camera/transport.dart';
 import '../downloads/downloader.dart';
+import '../l10n/l10n.dart';
 import '../state/downloads.dart';
 import '../state/session.dart';
 import '../state/sync_on_connect.dart';
@@ -22,13 +23,14 @@ class HomeScreen extends ConsumerWidget {
     ref.watch(recordingGuardProvider);
     final s = ref.watch(sessionProvider);
     final controller = ref.read(sessionProvider.notifier);
+    final l = context.l10n;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('nCAM'),
+        title: Text(l.appTitle),
         actions: [
           IconButton(
-            tooltip: 'Diagnostic log',
+            tooltip: l.diagnosticLog,
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute<void>(builder: (_) => const DiagnosticScreen()),
             ),
@@ -36,14 +38,14 @@ class HomeScreen extends ConsumerWidget {
           ),
           // Opens inside the app frame, so the dock stays and Back returns here.
           IconButton(
-            tooltip: 'Settings',
+            tooltip: l.settingsTitle,
             onPressed: () =>
                 ref.read(shellTabProvider.notifier).show(ShellTab.settings),
             icon: const Icon(Icons.settings_outlined),
           ),
           if (s.connected)
             IconButton(
-              tooltip: 'Refresh',
+              tooltip: l.refresh,
               onPressed: s.busy ? null : controller.refresh,
               icon: const Icon(Icons.refresh),
             ),
@@ -70,7 +72,7 @@ class HomeScreen extends ConsumerWidget {
                 const RecordingPausedBanner(margin: EdgeInsets.only(top: 12)),
                 if (s.error != null) ...[
                   const SizedBox(height: 12),
-                  _ErrorCard(message: s.error!),
+                  _ErrorCard(message: s.error!(l)),
                 ],
                 if (!s.connected && s.link != LinkState.lost) ...[
                   const SizedBox(height: 12),
@@ -86,8 +88,8 @@ class HomeScreen extends ConsumerWidget {
                     Card(
                       child: ListTile(
                         leading: const Icon(Icons.info_outline),
-                        title: const Text('No file list'),
-                        subtitle: Text(s.filesError!),
+                        title: Text(l.noFileList),
+                        subtitle: Text(s.filesError!(l)),
                       ),
                     ),
                   ] else if (s.files != null) ...[
@@ -108,34 +110,32 @@ class _LinkCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
-    final name = state.saved?.ssid ?? 'camera';
+    final l = context.l10n;
+    final name = state.saved?.ssid ?? l.defaultCameraName;
     final (icon, color, title, subtitle) = switch (state.link) {
       LinkState.connected => (
         Icons.wifi,
         scheme.primary,
-        'Connected to $name',
-        'Only this app uses the camera\'s Wi-Fi. Everything else stays on your '
-            'normal internet connection.',
+        l.linkConnected(name),
+        l.linkConnectedHint,
       ),
       LinkState.connecting => (
         Icons.wifi_find,
         scheme.secondary,
-        'Joining $name…',
-        'Android may ask you to confirm the network.',
+        l.linkJoining(name),
+        l.linkJoiningHint,
       ),
       LinkState.lost => (
         Icons.wifi_off,
         scheme.error,
-        'Lost $name',
-        'Will rejoin automatically when the camera is back in range.',
+        l.linkLost(name),
+        l.linkLostHint,
       ),
       LinkState.disconnected => (
         Icons.wifi_off,
         scheme.outline,
-        'Not connected',
-        state.saved == null
-            ? 'Enter the camera\'s Wi-Fi name and password once.'
-            : 'Saved camera: $name',
+        l.notConnected,
+        state.saved == null ? l.linkFirstTime : l.linkSaved(name),
       ),
     };
     return Card(
@@ -150,7 +150,7 @@ class _LinkCard extends ConsumerWidget {
                 // trying while joining or rejoining, leave once connected.
                 onPressed: ref.read(sessionProvider.notifier).disconnect,
                 child: Text(
-                  state.link == LinkState.connected ? 'Disconnect' : 'Cancel',
+                  state.link == LinkState.connected ? l.disconnect : l.cancel,
                 ),
               ),
       ),
@@ -198,6 +198,7 @@ class _ConnectCardState extends ConsumerState<_ConnectCard> {
   }
 
   Future<void> _scan() async {
+    final l = context.l10n;
     setState(() => _scanning = true);
     try {
       final networks = await ref.read(transportProvider).scan();
@@ -207,11 +208,9 @@ class _ConnectCardState extends ConsumerState<_ConnectCard> {
         showDragHandle: true,
         builder: (context) => SafeArea(
           child: networks.isEmpty
-              ? const Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Text(
-                    'No networks found. Make sure Wi-Fi is on, or type the name.',
-                  ),
+              ? Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(l.scanNone),
                 )
               : ListView(
                   shrinkWrap: true,
@@ -234,9 +233,8 @@ class _ConnectCardState extends ConsumerState<_ConnectCard> {
         SnackBar(
           content: Text(
             e.code == 'permission_denied'
-                ? 'Without that permission the app cannot list networks. '
-                      'You can still type the name.'
-                : 'Scan failed: ${e.message}',
+                ? l.scanNoPermission
+                : l.scanFailed(e.message),
           ),
         ),
       );
@@ -250,6 +248,7 @@ class _ConnectCardState extends ConsumerState<_ConnectCard> {
     final saved = widget.state.saved;
     final busy = widget.state.busy;
     final controller = ref.read(sessionProvider.notifier);
+    final l = context.l10n;
 
     if (saved != null && !_editing) {
       return Card(
@@ -263,7 +262,7 @@ class _ConnectCardState extends ConsumerState<_ConnectCard> {
                     ? null
                     : () => controller.connect(saved.ssid, saved.password),
                 icon: const Icon(Icons.wifi),
-                label: Text('Connect to ${saved.ssid}'),
+                label: Text(l.connectTo(saved.ssid)),
               ),
               const SizedBox(height: 8),
               // Wraps instead of overflowing with large system text.
@@ -278,11 +277,11 @@ class _ConnectCardState extends ConsumerState<_ConnectCard> {
                             _password.text = saved.password;
                             _editing = true;
                           }),
-                    child: const Text('Change name or password'),
+                    child: Text(l.changeNameOrPassword),
                   ),
                   TextButton(
                     onPressed: busy ? null : controller.forget,
-                    child: const Text('Forget'),
+                    child: Text(l.forget),
                   ),
                 ],
               ),
@@ -304,7 +303,7 @@ class _ConnectCardState extends ConsumerState<_ConnectCard> {
               autocorrect: false,
               enableSuggestions: false,
               decoration: InputDecoration(
-                labelText: 'Camera Wi-Fi name',
+                labelText: l.cameraWifiName,
                 border: const OutlineInputBorder(),
                 suffixIcon: _scanning
                     ? const Padding(
@@ -316,7 +315,7 @@ class _ConnectCardState extends ConsumerState<_ConnectCard> {
                         ),
                       )
                     : IconButton(
-                        tooltip: 'Find nearby networks',
+                        tooltip: l.findNetworks,
                         onPressed: busy ? null : _scan,
                         icon: const Icon(Icons.search),
                       ),
@@ -330,10 +329,10 @@ class _ConnectCardState extends ConsumerState<_ConnectCard> {
               autocorrect: false,
               enableSuggestions: false,
               decoration: InputDecoration(
-                labelText: 'Password',
+                labelText: l.password,
                 border: const OutlineInputBorder(),
                 suffixIcon: IconButton(
-                  tooltip: _showPassword ? 'Hide password' : 'Show password',
+                  tooltip: _showPassword ? l.hidePassword : l.showPassword,
                   onPressed: () =>
                       setState(() => _showPassword = !_showPassword),
                   icon: Icon(
@@ -352,12 +351,12 @@ class _ConnectCardState extends ConsumerState<_ConnectCard> {
                       setState(() => _editing = false);
                       controller.connect(ssid, _password.text);
                     },
-              child: const Text('Connect'),
+              child: Text(l.connect),
             ),
             if (saved != null)
               TextButton(
                 onPressed: busy ? null : () => setState(() => _editing = false),
-                child: const Text('Cancel'),
+                child: Text(l.cancel),
               ),
           ],
         ),
@@ -380,11 +379,12 @@ class _StatusCardState extends ConsumerState<_StatusCard> {
 
   Future<void> _start() async {
     final messenger = ScaffoldMessenger.of(context);
+    final l = context.l10n;
     setState(() => _starting = true);
     final error = await ref.read(sessionProvider.notifier).startRecording();
     if (mounted) setState(() => _starting = false);
     messenger.showSnackBar(
-      SnackBar(content: Text(error ?? 'The camera is recording.')),
+      SnackBar(content: Text(error?.call(l) ?? l.nowRecording)),
     );
   }
 
@@ -392,6 +392,7 @@ class _StatusCardState extends ConsumerState<_StatusCard> {
   Widget build(BuildContext context) {
     final status = widget.status;
     final scheme = Theme.of(context).colorScheme;
+    final l = context.l10n;
     // Paused on purpose by fast download: that has its own banner and restart.
     final pausedByApp =
         (ref.watch(fastModeProvider).value?.phase ?? FastPhase.idle) !=
@@ -410,7 +411,7 @@ class _StatusCardState extends ConsumerState<_StatusCard> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'The camera is NOT recording.',
+                      l.notRecordingWarning,
                       style: TextStyle(
                         color: scheme.onErrorContainer,
                         fontWeight: FontWeight.w600,
@@ -419,7 +420,7 @@ class _StatusCardState extends ConsumerState<_StatusCard> {
                   ),
                   FilledButton(
                     onPressed: _starting ? null : _start,
-                    child: Text(_starting ? 'Starting…' : 'Start recording'),
+                    child: Text(_starting ? l.starting : l.startRecording),
                   ),
                 ],
               ),
@@ -432,7 +433,7 @@ class _StatusCardState extends ConsumerState<_StatusCard> {
                     : Icons.stop_circle_outlined,
                 color: status.isRecording ? Colors.red : scheme.outline,
               ),
-              title: Text(status.isRecording ? 'Recording' : 'Not recording'),
+              title: Text(status.isRecording ? l.recording : l.notRecording),
               subtitle: status.isRecording
                   ? ClipTimer(
                       seconds: status.recordingSeconds,
@@ -445,14 +446,14 @@ class _StatusCardState extends ConsumerState<_StatusCard> {
               Icons.sd_card_outlined,
               color: status.hasCard ? null : scheme.error,
             ),
-            title: Text(status.hasCard ? 'SD card OK' : 'No SD card'),
+            title: Text(status.hasCard ? l.sdCardOk : l.noSdCard),
             subtitle: status.hasCard
-                ? Text('${formatBytes(status.freeBytes)} free')
+                ? Text(l.freeSpace(formatBytes(status.freeBytes)))
                 : null,
           ),
           ListTile(
             leading: const Icon(Icons.memory),
-            title: const Text('Firmware'),
+            title: Text(l.firmware),
             subtitle: Text(status.firmware),
           ),
         ],
@@ -468,33 +469,30 @@ class _TimeCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
+    final l = context.l10n;
     final sync = state.timeSync;
     final String title;
     final lines = <String>[];
     if (sync == null) {
-      title = 'Camera clock not synced yet';
-      if (!ref.watch(syncOnConnectProvider)) {
-        lines.add('Sync on connect is off in Settings.');
-      }
+      title = l.clockNotSynced;
+      if (!ref.watch(syncOnConnectProvider)) lines.add(l.syncOnConnectIsOff);
     } else if (!sync.ok) {
-      title = 'Clock sync failed';
+      title = l.clockSyncFailed;
       lines.add(sync.error!);
     } else {
-      title = 'Clock synced at ${formatClock(sync.at)}';
+      title = l.clockSyncedAt(formatClock(sync.at));
       final ahead = sync.cameraAheadBy;
       if (ahead == null) {
-        lines.add(
-          'The camera was not recording, so its previous time could not be checked.',
-        );
+        lines.add(l.clockNotChecked);
       } else if (ahead == Duration.zero) {
-        lines.add('The camera\'s clock was already right.');
+        lines.add(l.clockWasRight);
       } else {
+        final span = formatSpan(l, ahead);
         lines.add(
-          'Before the sync the camera was ${formatSpan(ahead)} '
-          '${ahead.isNegative ? 'behind' : 'ahead'}.',
+          ahead.isNegative ? l.clockWasBehind(span) : l.clockWasAhead(span),
         );
       }
-      lines.add('The new time shows from the next clip on.');
+      lines.add(l.clockNextClip);
     }
     return Card(
       child: Padding(
@@ -519,7 +517,7 @@ class _TimeCard extends ConsumerWidget {
                   ? null
                   : ref.read(sessionProvider.notifier).syncTime,
               icon: const Icon(Icons.sync),
-              label: const Text('Sync time'),
+              label: Text(l.syncTime),
             ),
           ],
         ),
@@ -539,16 +537,16 @@ class _FilesCard extends ConsumerWidget {
     final active =
         ref.watch(downloadJobsProvider).value?.where((j) => j.active).length ??
         0;
+    final l = context.l10n;
     return Card(
       clipBehavior: Clip.antiAlias,
       child: ListTile(
         leading: const Icon(Icons.video_library_outlined),
-        title: Text(recordings == 1 ? '1 recording' : '$recordings recordings'),
+        title: Text(l.recordingCount(recordings)),
         subtitle: Text(
           [
-            '${files.length} files, ${formatBytes(total)}',
-            if (active > 0)
-              active == 1 ? '1 download running' : '$active downloads queued',
+            l.filesAndSize(files.length, formatBytes(total)),
+            if (active > 0) l.downloadsActive(active),
           ].join(' · '),
         ),
         trailing: const Icon(Icons.chevron_right),
@@ -595,6 +593,7 @@ class _ClipTimerState extends State<ClipTimer> {
         ? 0
         : DateTime.now().difference(readAt).inSeconds;
     final seconds = widget.seconds + (since < 0 ? 0 : since);
-    return Text('Current clip: ${formatSpan(Duration(seconds: seconds))}');
+    final l = context.l10n;
+    return Text(l.currentClip(formatSpan(l, Duration(seconds: seconds))));
   }
 }

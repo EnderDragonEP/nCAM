@@ -48,7 +48,11 @@ class DownloadService : Service() {
         DiagLog.init(this)
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(
-            NotificationChannel(CHANNEL, "Downloads", NotificationManager.IMPORTANCE_LOW)
+            NotificationChannel(
+                CHANNEL,
+                getString(R.string.notification_channel_downloads),
+                NotificationManager.IMPORTANCE_LOW,
+            )
         )
         Downloads.onCancel = { job ->
             if (job === currentJob) {
@@ -357,13 +361,18 @@ class DownloadService : Service() {
             .setOnlyAlertOnce(true)
             .setContentIntent(open)
         if (job == null) {
-            builder.setContentTitle("Preparing download").setProgress(0, 0, true)
+            builder.setContentTitle(getString(R.string.notification_preparing)).setProgress(0, 0, true)
         } else {
             val position = Downloads.doneCount() + 1
-            builder.setContentTitle("Downloading $position of ${Downloads.totalCount()}")
+            builder.setContentTitle(
+                getString(R.string.notification_downloading, position, Downloads.totalCount())
+            )
                 .setContentText(
-                    if (FastMode.phase == FastMode.PAUSED) "${job.name} · recording paused"
-                    else job.name
+                    if (FastMode.phase == FastMode.PAUSED) {
+                        getString(R.string.notification_recording_paused, job.name)
+                    } else {
+                        job.name
+                    }
                 )
             if (job.total > 0) {
                 builder.setProgress(1000, (job.received * 1000 / job.total).toInt(), false)
