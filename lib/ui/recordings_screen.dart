@@ -28,6 +28,16 @@ class _RecordingsScreenState extends ConsumerState<RecordingsScreen> {
   bool _selecting = false;
   final Set<String> _selected = {};
 
+  @override
+  void initState() {
+    super.initState();
+    // Fresh list every time the page opens. After the first frame, because starting a
+    // refresh changes the session while the page is still being built.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.read(sessionProvider.notifier).refreshWhenIdle();
+    });
+  }
+
   /// The files of [r] that the current filter shows.
   List<CameraFile> _visibleFiles(Recording r) => [
     if (_filter != LensFilter.rear) ?r.front,

@@ -121,6 +121,22 @@ void main() {
     });
   });
 
+  testWidgets('opening Recordings refreshes the file list', (tester) async {
+    await open(tester);
+    final before = commands('cmd=3015');
+    await tester.tap(find.byTooltip('Recordings'));
+    await tester.pumpAndSettle();
+    expect(commands('cmd=3015'), greaterThan(before));
+
+    // Every time, not just the first.
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    final again = commands('cmd=3015');
+    await tester.tap(find.byTooltip('Recordings'));
+    await tester.pumpAndSettle();
+    expect(commands('cmd=3015'), greaterThan(again));
+  });
+
   testWidgets('the end of a page can be scrolled clear of the floating dock', (
     tester,
   ) async {
