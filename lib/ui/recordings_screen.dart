@@ -4,12 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../camera/models.dart';
 import '../camera/recordings.dart';
 import '../downloads/downloader.dart';
+import '../state/clip_names.dart';
 import '../state/downloads.dart';
 import '../state/session.dart';
 import 'clip_thumbnail.dart';
 import 'fast_mode.dart';
 import 'format.dart';
 import 'player_screen.dart';
+import 'recording_search.dart';
 
 enum LensFilter { both, front, rear }
 
@@ -27,6 +29,9 @@ class _RecordingsScreenState extends ConsumerState<RecordingsScreen> {
   LensFilter _filter = LensFilter.both;
   bool _selecting = false;
   final Set<String> _selected = {};
+  bool _searching = false;
+  final _search = TextEditingController();
+  String _query = '';
 
   @override
   void initState() {
@@ -37,6 +42,18 @@ class _RecordingsScreenState extends ConsumerState<RecordingsScreen> {
       if (mounted) ref.read(sessionProvider.notifier).refreshWhenIdle();
     });
   }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  void _closeSearch() => setState(() {
+    _search.clear();
+    _query = '';
+    _searching = false;
+  });
 
   /// The files of [r] that the current filter shows.
   List<CameraFile> _visibleFiles(Recording r) => [
@@ -158,16 +175,22 @@ class _RecordingsScreenState extends ConsumerState<RecordingsScreen> {
   Widget build(BuildContext context) {
     ref.watch(recordingGuardProvider);
     final session = ref.watch(sessionProvider);
+    final names = ref.watch(clipNamesProvider);
+    // Selected recordings stay selected while a search hides them.
     final recordings = ref
         .watch(recordingsProvider)
         .where((r) => _visibleFiles(r).isNotEmpty)
         .toList();
+    final shown = [
+      for (final r in recordings)
+        if (recordingMatches(r, clipName(names, r), _query)) r,
+    ];
     final resolver = ref.watch(fileStatusProvider);
     final jobs = ref.watch(downloadJobsProvider).value ?? const [];
 
     final items = <Widget>[];
     String? lastDay;
-    for (final r in recordings) {
+    for (final r in shown) {
       final day = r.time == null ? 'Unknown date' : formatDay(r.time!);
       if (day != lastDay) {
         lastDay = day;
@@ -176,6 +199,7 @@ class _RecordingsScreenState extends ConsumerState<RecordingsScreen> {
       items.add(
         _RecordingTile(
           recording: r,
+          name: clipName(names, r),
           views: [for (final f in _visibleFiles(r)) resolver.view(f)],
           selecting: _selecting,
           selected: _selected.contains(r.id),
@@ -193,9 +217,14 @@ class _RecordingsScreenState extends ConsumerState<RecordingsScreen> {
     }
 
     return PopScope(
-      canPop: !_selecting,
+      canPop: !_selecting && !_searching,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _stopSelecting();
+        if (didPop) return;
+        if (_selecting) {
+          _stopSelecting();
+        } else {
+          _closeSearch();
+        }
       },
       child: Scaffold(
         appBar: _selecting
@@ -211,7 +240,7 @@ class _RecordingsScreenState extends ConsumerState<RecordingsScreen> {
                     tooltip: 'Select all',
                     onPressed: () => setState(() {
                       _selected.addAll([
-                        for (final r in recordings)
+                        for (final r in shown)
                           if (!r.beingWritten) r.id,
                       ]);
                     }),
@@ -251,6 +280,13 @@ class _RecordingsScreenState extends ConsumerState<RecordingsScreen> {
                 title: const Text('Recordings'),
                 actions: [
                   IconButton(
+                    tooltip: 'Search',
+                    onPressed: recordings.isEmpty || _searching
+                        ? null
+                        : () => setState(() => _searching = true),
+                    icon: const Icon(Icons.search),
+                  ),
+                  IconButton(
                     tooltip: 'Select several',
                     onPressed: recordings.isEmpty
                         ? null
@@ -274,6 +310,25 @@ class _RecordingsScreenState extends ConsumerState<RecordingsScreen> {
               ),
         body: Column(
           children: [
+            if (_searching)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: SearchBar(
+                  controller: _search,
+                  autoFocus: true,
+                  hintText: 'Search names and dates',
+                  leading: const Icon(Icons.search),
+                  elevation: const WidgetStatePropertyAll(0),
+                  onChanged: (text) => setState(() => _query = text.trim()),
+                  trailing: [
+                    IconButton(
+                      tooltip: 'Close search',
+                      onPressed: _closeSearch,
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
+              ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
               child: SegmentedButton<LensFilter>(
@@ -300,7 +355,9 @@ class _RecordingsScreenState extends ConsumerState<RecordingsScreen> {
                       child: Padding(
                         padding: const EdgeInsets.all(32),
                         child: Text(
-                          session.filesError != null
+                          recordings.isNotEmpty
+                              ? 'No recording matches "$_query".'
+                              : session.filesError != null
                               ? session.filesError!
                               : session.connected
                               ? (session.busy
@@ -315,6 +372,8 @@ class _RecordingsScreenState extends ConsumerState<RecordingsScreen> {
                       onRefresh: ref.read(sessionProvider.notifier).refresh,
                       child: ListView(
                         physics: const AlwaysScrollableScrollPhysics(),
+                        keyboardDismissBehavior:
+                            ScrollViewKeyboardDismissBehavior.onDrag,
                         children: items,
                       ),
                     ),
@@ -389,10 +448,14 @@ class _RecordingTile extends StatelessWidget {
     required this.onLongPress,
     required this.onFile,
     required this.onDelete,
+    this.name,
   });
 
   final VoidCallback onDelete;
   final Recording recording;
+
+  /// The name given to the recording on the phone, if any.
+  final String? name;
   final List<FileView> views;
   final bool selecting;
   final bool selected;
@@ -486,6 +549,13 @@ class _RecordingTile extends StatelessWidget {
                         ),
                     ],
                   ),
+                  if (name != null)
+                    Text(
+                      name!,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
                   if (r.beingWritten)
                     Text(
                       'Recording now. Available when this clip is finished.',

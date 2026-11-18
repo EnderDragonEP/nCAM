@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -10,6 +12,7 @@ import 'package:ncam/state/credentials.dart';
 import 'package:ncam/state/downloads.dart';
 import 'package:ncam/state/session.dart';
 import 'package:ncam/ui/recordings_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 CameraFile file(String name, int size, DateTime written) => CameraFile(
   name: name,
@@ -195,6 +198,60 @@ void main() {
       expect(find.text('19:22:57 · 45 s'), findsOneWidget);
       // Two finished pairs can be downloaded; the pair being written cannot.
       expect(find.byIcon(Icons.download), findsNWidgets(4));
+    });
+
+    testWidgets('shows the name given to a recording on the phone', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({
+        'clip_names': jsonEncode({'2026_1111_192257_045A.TS': 'Near miss'}),
+      });
+      await open(tester);
+      expect(find.text('Near miss'), findsOneWidget);
+    });
+
+    testWidgets('search narrows the list by name or by date and time', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({
+        'clip_names': jsonEncode({'2026_1111_192257_045A.TS': 'Near miss'}),
+      });
+      await open(tester);
+      Future<void> search(String text) async {
+        await tester.enterText(find.byType(SearchBar), text);
+        await tester.pumpAndSettle();
+      }
+
+      expect(find.byType(SearchBar), findsNothing);
+      await tester.tap(find.byTooltip('Search'));
+      await tester.pumpAndSettle();
+
+      await search('near');
+      expect(find.text('19:22:57 · 45 s'), findsOneWidget);
+      expect(find.textContaining('19:17:23'), findsNothing);
+      expect(find.textContaining('Recording now'), findsNothing);
+
+      await search('19:17');
+      expect(find.textContaining('19:17:23'), findsOneWidget);
+      expect(find.text('19:22:57 · 45 s'), findsNothing);
+
+      // Select all takes only what the search shows.
+      await search('near');
+      await tester.tap(find.byTooltip('Select several'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Select all'));
+      await tester.pumpAndSettle();
+      expect(find.text('1 selected'), findsOneWidget);
+      await tester.tap(find.byTooltip('Cancel selection'));
+      await tester.pumpAndSettle();
+
+      await search('speeding');
+      expect(find.text('No recording matches "speeding".'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Close search'));
+      await tester.pumpAndSettle();
+      expect(find.byType(SearchBar), findsNothing);
+      expect(find.text('19:22:57 · 45 s'), findsOneWidget);
     });
 
     testWidgets('tapping a clip queues it and shows progress, then saved', (

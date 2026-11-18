@@ -3,19 +3,36 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../camera/models.dart';
 import '../camera/recordings.dart';
+import '../state/clip_names.dart';
 import '../state/downloads.dart';
 import 'clip_thumbnail.dart';
 import 'format.dart';
 import 'player_screen.dart';
+import 'recording_search.dart';
 
-/// Clips already on the phone. Needs no camera connection.
-class SavedScreen extends ConsumerWidget {
+/// Clips already on the phone, with their names, and a search over names and dates.
+/// Needs no camera connection.
+class SavedScreen extends ConsumerStatefulWidget {
   const SavedScreen({super.key, this.onBack});
 
   /// When shown inside the dock, the back arrow returns to the home page.
   final VoidCallback? onBack;
 
-  Future<void> _delete(BuildContext context, WidgetRef ref, Recording r) async {
+  @override
+  ConsumerState<SavedScreen> createState() => _SavedScreenState();
+}
+
+class _SavedScreenState extends ConsumerState<SavedScreen> {
+  final _search = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  Future<void> _delete(Recording r) async {
     final files = r.files;
     final what = files.length == 1 ? '1 file' : '${files.length} files';
     final messenger = ScaffoldMessenger.of(context);
@@ -40,32 +57,51 @@ class SavedScreen extends ConsumerWidget {
     );
     if (confirmed != true) return;
     final downloader = ref.read(downloaderProvider);
-    var deleted = 0;
+    final gone = <String>[];
     for (final f in files) {
       try {
-        if (await downloader.deleteLocal(f.name)) deleted++;
+        if (await downloader.deleteLocal(f.name)) gone.add(f.name);
       } catch (_) {}
     }
+    // A name goes with the last copy of its recording.
+    await ref.read(clipNamesProvider.notifier).forget(gone);
     ref.invalidate(localFilesProvider);
     messenger.showSnackBar(
       SnackBar(
         content: Text(
-          deleted == files.length
+          gone.length == files.length
               ? 'Deleted from this phone.'
-              : 'Deleted $deleted of ${files.length}. The rest could not be removed.',
+              : 'Deleted ${gone.length} of ${files.length}. The rest could not be removed.',
         ),
       ),
     );
   }
 
+  Future<void> _rename(Recording r, String? current) async {
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => _NameDialog(recording: r, current: current),
+    );
+    if (name == null) return; // cancelled
+    await ref.read(clipNamesProvider.notifier).rename(r, name);
+  }
+
+  void _setQuery(String text) => setState(() => _query = text.trim());
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final loading = ref.watch(localFilesProvider).isLoading;
-    final recordings = ref.watch(savedRecordingsProvider);
+    final all = ref.watch(savedRecordingsProvider);
+    final names = ref.watch(clipNamesProvider);
+    final shown = [
+      for (final r in all)
+        if (recordingMatches(r, clipName(names, r), _query)) r,
+    ];
 
     final items = <Widget>[];
     String? lastDay;
-    for (final r in recordings) {
+    for (final r in shown) {
       final day = r.time == null ? 'Unknown date' : formatDay(r.time!);
       if (day != lastDay) {
         lastDay = day;
@@ -74,43 +110,171 @@ class SavedScreen extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
             child: Text(
               day,
-              style: Theme.of(context).textTheme.titleSmall
-                  ?.copyWith(color: Theme.of(context).colorScheme.primary),
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: theme.colorScheme.primary,
+              ),
             ),
           ),
         );
       }
+      final name = clipName(names, r);
       items.add(
-        _SavedTile(recording: r, onDelete: () => _delete(context, ref, r)),
+        _SavedTile(
+          recording: r,
+          name: name,
+          onRename: () => _rename(r, name),
+          onDelete: () => _delete(r),
+        ),
+      );
+    }
+
+    final Widget body;
+    if (all.isEmpty) {
+      body = Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Text(
+            loading
+                ? 'Looking for saved clips…'
+                : 'Nothing saved yet. Download recordings from the camera and '
+                      'they will appear here and in your gallery (Movies/nCAM).',
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    } else if (shown.isEmpty) {
+      body = Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Text(
+            'No saved recording matches "$_query".\n'
+            'Search by name, or by date and time such as "17 Nov", '
+            '"2026-11-17" or "19:22".',
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    } else {
+      body = ListView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        children: items,
       );
     }
 
     return Scaffold(
       appBar: AppBar(
-        leading: onBack == null ? null : BackButton(onPressed: onBack),
+        leading: widget.onBack == null
+            ? null
+            : BackButton(onPressed: widget.onBack),
         title: const Text('Saved on this phone'),
-      ),
-      body: items.isEmpty
-          ? Center(
-              child: Padding(
-                padding: const EdgeInsets.all(32),
-                child: Text(
-                  loading
-                      ? 'Looking for saved clips…'
-                      : 'Nothing saved yet. Download recordings from the camera and '
-                            'they will appear here and in your gallery (Movies/nCAM).',
-                  textAlign: TextAlign.center,
+        bottom: all.isEmpty
+            ? null
+            : PreferredSize(
+                preferredSize: const Size.fromHeight(64),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  child: SearchBar(
+                    controller: _search,
+                    hintText: 'Search names and dates',
+                    leading: const Icon(Icons.search),
+                    elevation: const WidgetStatePropertyAll(0),
+                    onChanged: _setQuery,
+                    trailing: [
+                      if (_query.isNotEmpty)
+                        IconButton(
+                          tooltip: 'Clear search',
+                          icon: const Icon(Icons.close),
+                          onPressed: () {
+                            _search.clear();
+                            _setQuery('');
+                          },
+                        ),
+                    ],
+                  ),
                 ),
               ),
-            )
-          : ListView(children: items),
+      ),
+      body: body,
+    );
+  }
+}
+
+class _NameDialog extends StatefulWidget {
+  const _NameDialog({required this.recording, required this.current});
+  final Recording recording;
+  final String? current;
+
+  @override
+  State<_NameDialog> createState() => _NameDialogState();
+}
+
+class _NameDialogState extends State<_NameDialog> {
+  late final _text = TextEditingController(text: widget.current ?? '');
+
+  @override
+  void dispose() {
+    _text.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final time = widget.recording.time;
+    return AlertDialog(
+      title: Text(
+        widget.current == null ? 'Name recording' : 'Rename recording',
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (time != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(formatDateTime(time)),
+            ),
+          TextField(
+            controller: _text,
+            autofocus: true,
+            maxLength: clipNameMaxLength,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: const InputDecoration(
+              labelText: 'Name',
+              hintText: 'For example: Near miss on the A1',
+            ),
+            onSubmitted: (v) => Navigator.pop(context, v),
+          ),
+        ],
+      ),
+      actions: [
+        if (widget.current != null)
+          TextButton(
+            onPressed: () => Navigator.pop(context, ''),
+            child: const Text('Remove name'),
+          ),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, _text.text),
+          child: const Text('Save'),
+        ),
+      ],
     );
   }
 }
 
 class _SavedTile extends StatelessWidget {
-  const _SavedTile({required this.recording, required this.onDelete});
+  const _SavedTile({
+    required this.recording,
+    required this.name,
+    required this.onRename,
+    required this.onDelete,
+  });
   final Recording recording;
+  final String? name;
+  final VoidCallback onRename;
   final VoidCallback onDelete;
 
   void _play(BuildContext context, Lens lens) => Navigator.of(context).push(
@@ -125,8 +289,10 @@ class _SavedTile extends StatelessWidget {
     final r = recording;
     final first = r.files.first;
     final time = r.time;
+    final clock = time == null ? first.name : formatClock(time);
     return InkWell(
       onTap: () => _play(context, first.lens),
+      onLongPress: onRename,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
         child: Row(
@@ -140,10 +306,9 @@ class _SavedTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    time == null ? first.name : formatClock(time),
-                    style: theme.textTheme.titleMedium,
-                  ),
+                  Text(name ?? clock, style: theme.textTheme.titleMedium),
+                  if (name != null)
+                    Text(clock, style: theme.textTheme.bodySmall),
                   const SizedBox(height: 4),
                   Wrap(
                     spacing: 8,
@@ -169,9 +334,14 @@ class _SavedTile extends StatelessWidget {
             ),
             PopupMenuButton<String>(
               tooltip: 'More',
-              onSelected: (_) => onDelete(),
-              itemBuilder: (context) => const [
+              onSelected: (action) =>
+                  action == 'rename' ? onRename() : onDelete(),
+              itemBuilder: (context) => [
                 PopupMenuItem(
+                  value: 'rename',
+                  child: Text(name == null ? 'Name…' : 'Rename…'),
+                ),
+                const PopupMenuItem(
                   value: 'delete',
                   child: Text('Delete from this phone'),
                 ),
