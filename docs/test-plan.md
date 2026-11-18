@@ -63,6 +63,7 @@ Tests to run on the real phone (Galaxy S24 Ultra, Android 17) and the real camer
 | C5 | Repeat C4 on three different days. | Three figures. If they are all small (seconds), drift is not the cause of wrong timestamps; if one is a month or a year, tell me the dates. | |
 | C6 | Connect while the camera is **not** recording. | "Clock synced", with a note that the previous time could not be checked. The next clip is named correctly. | |
 | C7 | Open the official VF Cam app once, connect with it, close it. Then connect with nCAM and read the time card. | Tells us whether the official app is what set the clock a month back on 11 November. Write down what the card says. | |
+| C8 | Settings → turn off "Sync time on connect". Disconnect and connect again. | The time card says "Sync on connect is off in Settings." and the camera's clock is left as it was. "Sync time" still works. Turn the switch back on afterwards (it is on by default). | |
 
 ## D. Recordings and downloads (goal 3: download while recording)
 
@@ -146,6 +147,9 @@ Results here were reported as working in general; the individual checks were not
 | H7 | Three-dot menu, "Delete from this phone". | Gone from the list and from the gallery. The camera's copy is untouched: Recordings shows it with a download icon again. | |
 | H8 | Open the same clips in Samsung Gallery. | They are in `Movies/nCAM` and play there too. | |
 | H9 | Play a clip, press Home, return to the app. | No crash; playback can be resumed. | |
+| H10 | On a recording with front and rear saved, tap **Both** mid-playback. | Both clips play from the same moment, front above rear in portrait and side by side in landscape. Only the front clip's sound. Play/pause, the seek bar and the 10-second skips move both. | |
+| H11 | Let Both play for a full 10-minute clip. | The two pictures stay in step (a car passing should show on the rear just after the front, not seconds apart). | |
+| H12 | Both playing: press Home. | The floating window shows the two pictures side by side. | |
 
 ## I. Settings (new)
 
@@ -198,6 +202,7 @@ These are the ones that decide whether the app can replace the official one.
 | L8 | During a cut-out, tap "Try again". | The app rebuilds the camera connection and the picture returns. | |
 | L9 | Diagnostic log → download icon. | "Saved to Downloads as nCam-….log"; the file is in the phone's Downloads folder and opens in a text viewer. No permission prompt. | |
 | L10 | Turn on the largest font size; look at the dock and home page. | Nothing cut off or overlapping. | |
+| L11 | Press and hold the Record button with your thumb, with it on the right and then on the left (Settings). | The button grows to about twice its size above your thumb while pressed, so the stop icon and the ring stay visible; it stays on the screen and shrinks back when you let go. | |
 
 ## M. Appearance (added 2026-11-13)
 
