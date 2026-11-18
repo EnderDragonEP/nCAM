@@ -24,3 +24,6 @@ android/key.properties
 camtest-*.log
 nCam-*.log
 __pycache__/
+
+# Diagnostic logs and screenshots from the phone, kept locally
+.logs/
