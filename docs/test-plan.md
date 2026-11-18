@@ -150,6 +150,13 @@ Results here were reported as working in general; the individual checks were not
 | H10 | On a recording with front and rear saved, tap **Both** mid-playback. | Both clips play from the same moment, front above rear in portrait and side by side in landscape. Only the front clip's sound. Play/pause, the seek bar and the 10-second skips move both. | |
 | H11 | Let Both play for a full 10-minute clip. | The two pictures stay in step (a car passing should show on the rear just after the front, not seconds apart). | |
 | H12 | Both playing: press Home. | The floating window shows the two pictures side by side. | |
+| H13 | Both playing: pause, then play, several times; drag the seek bar; use the 10-second skips. | One press each time. Both pictures move and keep going together; neither freezes or replays the same second. | |
+| H14 | Rotate to landscape (one clip, then Both). | The clips fill the screen and the status and navigation bars hide. The controls fade after 3 s of playing; a tap on the picture brings them back. Rotating back restores the bars. | |
+| H15 | Saved → three-dot menu (or long-press) on a recording → "Name…", type a name, Save. | The name is the tile's title with the time under it. It also shows in the player's title and, when connected, on that recording in Recordings. It is still there after closing and reopening the app. | |
+| H16 | Same menu → "Rename…": change it; then "Remove name". | The new name shows; after removing, the tile shows the time again. | |
+| H17 | Type in the search box: part of a name; a date such as "17 Nov", "november", "2026-11-17" or "11/17"; a time such as "19:22". | Only matching recordings stay, under their day headings. Something that matches nothing says so; the clear button brings everything back. | |
+| H18 | Delete a named recording from the phone, then download it again. | It comes back without the old name. | |
+| H19 | Connected: Recordings → search icon, then search by a name, a date or a time (as in H17). Then select several → Select all. | Only matching recordings show; Select all picks only those. The ✕ (or Back) closes the search and shows everything again. | |
 
 ## I. Settings (new)
 
