@@ -6,14 +6,50 @@ import 'package:video_player_platform_interface/video_player_platform_interface.
 /// One clip opened through [FakeVideoPlayer]. Its position only moves when the app
 /// seeks or a test sets it, so tests decide exactly where each clip is.
 class FakeVideo {
-  FakeVideo(this.uri, this.duration);
+  FakeVideo(this.uri, this.duration, {required this.mixWithOthers});
   final String uri;
   final Duration duration;
+
+  /// As on Android: taken from the last setMixWithOthers before the player was made.
+  /// False means the player takes the sound focus (and pauses the app's others).
+  final bool mixWithOthers;
   Duration position = Duration.zero;
   bool playing = false;
   bool disposed = false;
   double volume = 1;
+  double speed = 1;
   final seeks = <Duration>[];
+  final events = StreamController<VideoEvent>();
+
+  /// Sends what Android reports while a clip loads after a jump.
+  void startBuffering() => events
+    ..add(VideoEvent(eventType: VideoEventType.bufferingStart))
+    ..add(
+      VideoEvent(
+        eventType: VideoEventType.isPlayingStateUpdate,
+        isPlaying: false,
+      ),
+    );
+
+  void endBuffering() => events
+    ..add(VideoEvent(eventType: VideoEventType.bufferingEnd))
+    ..add(
+      VideoEvent(
+        eventType: VideoEventType.isPlayingStateUpdate,
+        isPlaying: true,
+      ),
+    );
+
+  /// Android stopped the clip by itself, as when another app takes the sound.
+  void stoppedFromOutside() {
+    playing = false;
+    events.add(
+      VideoEvent(
+        eventType: VideoEventType.isPlayingStateUpdate,
+        isPlaying: false,
+      ),
+    );
+  }
 }
 
 /// Stands in for the platform video player in widget tests.
@@ -21,6 +57,7 @@ class FakeVideoPlayer extends VideoPlayerPlatform {
   final videos = <int, FakeVideo>{};
   Duration duration = const Duration(minutes: 1);
   int _next = 1;
+  bool _mix = false;
 
   /// The open (not disposed) clip whose address ends with [name].
   FakeVideo open(String name) =>
@@ -30,7 +67,11 @@ class FakeVideoPlayer extends VideoPlayerPlatform {
 
   int _add(DataSource source) {
     final id = _next++;
-    videos[id] = FakeVideo(source.uri ?? source.asset ?? '', duration);
+    videos[id] = FakeVideo(
+      source.uri ?? source.asset ?? '',
+      duration,
+      mixWithOthers: _mix,
+    );
     return id;
   }
 
@@ -46,19 +87,16 @@ class FakeVideoPlayer extends VideoPlayerPlatform {
 
   @override
   Stream<VideoEvent> videoEventsFor(int playerId) {
-    // Left open, as a real player's events are: cancelling a finished stream waits
-    // for real time, which widget tests never let pass.
-    late final StreamController<VideoEvent> events;
-    events = StreamController<VideoEvent>(
-      onListen: () => events.add(
-        VideoEvent(
-          eventType: VideoEventType.initialized,
-          duration: videos[playerId]!.duration,
-          size: const Size(1920, 1080),
-        ),
+    // Left open, as a real player's events are; the first one says it is ready.
+    final video = videos[playerId]!;
+    video.events.add(
+      VideoEvent(
+        eventType: VideoEventType.initialized,
+        duration: video.duration,
+        size: const Size(1920, 1080),
       ),
     );
-    return events.stream;
+    return video.events.stream;
   }
 
   @override
@@ -85,7 +123,8 @@ class FakeVideoPlayer extends VideoPlayerPlatform {
   }
 
   @override
-  Future<void> setPlaybackSpeed(int playerId, double speed) async {}
+  Future<void> setPlaybackSpeed(int playerId, double speed) async =>
+      videos[playerId]!.speed = speed;
 
   @override
   Future<Duration> getPosition(int playerId) async =>
@@ -99,7 +138,8 @@ class FakeVideoPlayer extends VideoPlayerPlatform {
       const ColoredBox(color: Colors.grey);
 
   @override
-  Future<void> setMixWithOthers(bool mixWithOthers) async {}
+  Future<void> setMixWithOthers(bool mixWithOthers) async =>
+      _mix = mixWithOthers;
 
   @override
   Future<void> setAllowBackgroundPlayback(bool allowBackgroundPlayback) async {}
