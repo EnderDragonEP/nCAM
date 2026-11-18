@@ -38,6 +38,11 @@ class MainActivity : FlutterActivity() {
         bridge?.onRequestPermissionsResult(requestCode, grantResults)
     }
 
+    override fun onResume() {
+        super.onResume()
+        CameraLink.onAppResumed()
+    }
+
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
         pip?.onUserLeaveHint()

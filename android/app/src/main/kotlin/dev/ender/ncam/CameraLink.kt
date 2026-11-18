@@ -1,13 +1,21 @@
 package dev.ender.ncam
 
+import android.Manifest
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
+import android.net.wifi.WifiManager
 import android.net.wifi.WifiNetworkSpecifier
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.net.HttpURLConnection
@@ -53,10 +61,30 @@ object CameraLink {
 
     // Answers the app's pending connect call; disconnect() uses it to say "cancelled".
     private var pendingReport: ((String?) -> Unit)? = null
-    private val rejoin = Runnable { rejoinNow() }
 
-    private val REJOIN_DELAYS_MS = longArrayOf(3_000, 5_000, 10_000, 20_000, 30_000)
-    private const val REJOIN_TIMEOUT_MS = 20_000
+    // ---- Rejoining a lost link ----------------------------------------------------
+    //
+    // Seen on the real phone when the camera power-cycles: while the camera's Wi-Fi is
+    // gone, Android refuses join requests on the spot, and a request it does accept can
+    // then sit unanswered forever. What works is asking once the camera is visible
+    // again (the user's Cancel + Connect). So while the link is lost, the camera's name
+    // is looked for in Wi-Fi scans, and the join is requested only once it shows up.
+
+    private const val WATCH_MS = 4_000L // how often the lost link is looked after
+    private const val REJOIN_TIMEOUT_MS = 25_000 // one join request
+    private const val STUCK_MS = REJOIN_TIMEOUT_MS + 5_000L // no answer at all: give up on it
+    private const val REFUSED_COOLDOWN_MS = 5_000L // after Android refused a request
+    private const val SCAN_EVERY_MS = 30_000L // Android allows 4 scans per 2 min
+    private const val FRESH_RESULT_MS = 30_000L // a scan result this old still counts
+    private const val BLIND_RETRY_MS = 20_000L // without scan permission
+
+    private var requestSince = 0L // when the current rejoin request was made; 0 = none
+    private var cooldownUntil = 0L
+    private var lastScanAt = 0L
+    private var lastBlindAt = 0L
+    private var announcedWaiting = false
+    private var scanReceiver: BroadcastReceiver? = null
+    private val watch = Runnable { watchTick() }
 
     fun addListener(l: (String) -> Unit) = listeners.add(l)
     fun removeListener(l: (String) -> Unit) = listeners.remove(l)
@@ -72,8 +100,8 @@ object CameraLink {
      * success or a short error code: "unavailable" (not found, wrong password, or the user
      * dismissed the system dialog) or "error:<message>".
      *
-     * Once joined, the link is kept: if Android reports it lost, it is requested again
-     * until it comes back or [disconnect] is called.
+     * Once joined, the link is kept: if Android reports it lost, it is rejoined as soon
+     * as the camera is back, until [disconnect] is called.
      */
     fun connect(
         context: Context,
@@ -82,7 +110,7 @@ object CameraLink {
         timeoutMs: Int,
         onResult: (String?) -> Unit,
     ) {
-        main.removeCallbacks(rejoin)
+        stopWatching()
         appContext = context.applicationContext
         this.ssid = ssid
         this.password = password
@@ -121,7 +149,7 @@ object CameraLink {
         val cb = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(n: Network) {
                 if (callback !== this) return
-                main.removeCallbacks(rejoin)
+                stopWatching()
                 rejoinAttempt = 0
                 network = n
                 setState(STATE_CONNECTED)
@@ -136,9 +164,8 @@ object CameraLink {
                 if (callback !== this) return
                 network = null
                 setState(STATE_LOST)
-                // Android does not reliably bring a lost camera link back by itself (seen on
-                // the real phone: nothing for over a minute), so ask for it again.
-                scheduleRejoin()
+                // Android does not bring a lost camera link back by itself.
+                startWatching()
             }
 
             override fun onUnavailable() {
@@ -146,8 +173,7 @@ object CameraLink {
                 callback = null
                 network = null
                 if (rejoining && wanted) {
-                    // Camera still out of reach: keep trying.
-                    scheduleRejoin()
+                    rejoinFailed("no answer from the camera")
                 } else {
                     setState(STATE_DISCONNECTED)
                     report("unavailable")
@@ -162,7 +188,7 @@ object CameraLink {
             callback = null
             DiagLog.add("link: request failed: ${e.message}")
             if (rejoining && wanted) {
-                scheduleRejoin()
+                rejoinFailed("request failed")
             } else {
                 setState(STATE_DISCONNECTED)
                 report("error:${e.message}")
@@ -170,24 +196,172 @@ object CameraLink {
         }
     }
 
-    private fun scheduleRejoin() {
+    // ---- Looking after a lost link ----------------------------------------------------
+
+    private fun startWatching() {
         if (!wanted) return
-        main.removeCallbacks(rejoin)
-        val delay = REJOIN_DELAYS_MS[minOf(rejoinAttempt, REJOIN_DELAYS_MS.size - 1)]
-        rejoinAttempt++
-        DiagLog.add("link: rejoining in ${delay / 1000} s (attempt $rejoinAttempt)")
-        main.postDelayed(rejoin, delay)
+        announcedWaiting = false
+        cooldownUntil = 0
+        registerScanReceiver()
+        main.removeCallbacks(watch)
+        main.postDelayed(watch, 1_000)
     }
 
-    private fun rejoinNow() {
+    private fun stopWatching() {
+        main.removeCallbacks(watch)
+        unregisterScanReceiver()
+        requestSince = 0
+    }
+
+    private fun watchTick() {
+        main.removeCallbacks(watch)
+        if (!wanted || state == STATE_CONNECTED) {
+            stopWatching()
+            return
+        }
+        val now = SystemClock.elapsedRealtime()
+        val pending = requestSince != 0L
+        if (pending && now - requestSince > STUCK_MS) {
+            // Android neither joined nor gave up: drop the request and start again.
+            DiagLog.add("link: join request got no answer, starting again")
+            appContext?.let { release(it.getSystemService(ConnectivityManager::class.java)) }
+            requestSince = 0
+        } else if (!pending && now >= cooldownUntil) {
+            when (cameraVisible(now)) {
+                true -> rejoinNow("camera seen")
+                false -> {
+                    if (!announcedWaiting) {
+                        announcedWaiting = true
+                        DiagLog.add("link: waiting for $ssid to appear")
+                    }
+                    startScan(now, force = false)
+                }
+                // Scan results not readable: fall back to plain retries.
+                null -> if (now - lastBlindAt >= BLIND_RETRY_MS) {
+                    lastBlindAt = now
+                    rejoinNow("no scan permission, trying blind")
+                }
+            }
+        }
+        main.postDelayed(watch, WATCH_MS)
+    }
+
+    private fun rejoinNow(why: String) {
         if (!wanted || state == STATE_CONNECTED) return
+        rejoinAttempt++
+        DiagLog.add("link: rejoining, attempt $rejoinAttempt ($why)")
+        announcedWaiting = false
+        requestSince = SystemClock.elapsedRealtime()
         // Stays "lost" for the app while this runs: it is not a new connection.
         request(REJOIN_TIMEOUT_MS, rejoining = true) {}
     }
 
+    private fun rejoinFailed(reason: String) {
+        val took = if (requestSince == 0L) 0 else SystemClock.elapsedRealtime() - requestSince
+        requestSince = 0
+        if (took < 3_000) {
+            DiagLog.add("link: Android refused the join at once ($reason)")
+            cooldownUntil = SystemClock.elapsedRealtime() + REFUSED_COOLDOWN_MS
+        } else {
+            DiagLog.add("link: join attempt ended after ${took / 1000} s ($reason)")
+        }
+        main.removeCallbacks(watch)
+        main.postDelayed(watch, WATCH_MS)
+    }
+
+    /** True if the camera's Wi-Fi was in a recent scan; null if scans cannot be read. */
+    private fun cameraVisible(now: Long): Boolean? {
+        val context = appContext ?: return null
+        val name = ssid ?: return null
+        if (!canReadScans(context)) return null
+        return try {
+            val wifi = context.getSystemService(WifiManager::class.java)
+            val nowMicros = now * 1000
+            @Suppress("DEPRECATION")
+            wifi.scanResults.any {
+                it.SSID == name && nowMicros - it.timestamp < FRESH_RESULT_MS * 1000
+            }
+        } catch (_: SecurityException) {
+            null
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun canReadScans(context: Context): Boolean {
+        val permission = if (Build.VERSION.SDK_INT >= 33) {
+            Manifest.permission.NEARBY_WIFI_DEVICES
+        } else {
+            Manifest.permission.ACCESS_FINE_LOCATION
+        }
+        return context.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun startScan(now: Long, force: Boolean) {
+        val context = appContext ?: return
+        if (!force && now - lastScanAt < SCAN_EVERY_MS) return
+        lastScanAt = now
+        try {
+            @Suppress("DEPRECATION")
+            context.getSystemService(WifiManager::class.java).startScan()
+        } catch (_: Exception) {
+            // Throttled or not allowed; scans Android runs anyway still arrive.
+        }
+    }
+
+    private fun registerScanReceiver() {
+        val context = appContext ?: return
+        if (scanReceiver != null) return
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(c: Context, intent: Intent) {
+                // Fresh results: look for the camera now rather than at the next tick.
+                if (requestSince == 0L) main.post(watch)
+            }
+        }
+        val filter = IntentFilter(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION)
+        try {
+            if (Build.VERSION.SDK_INT >= 33) {
+                context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            } else {
+                @Suppress("UnspecifiedRegisterReceiverFlag")
+                context.registerReceiver(receiver, filter)
+            }
+            scanReceiver = receiver
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun unregisterScanReceiver() {
+        val receiver = scanReceiver ?: return
+        scanReceiver = null
+        try {
+            appContext?.unregisterReceiver(receiver)
+        } catch (_: Exception) {
+        }
+    }
+
+    /**
+     * The app came back on screen. A lost link gets a fresh start: Android is more willing
+     * to join for an app in front of the user, and an old request may be stuck.
+     */
+    fun onAppResumed() {
+        if (!wanted || state != STATE_LOST) return
+        val now = SystemClock.elapsedRealtime()
+        if (requestSince != 0L && now - requestSince > 8_000) {
+            appContext?.let { release(it.getSystemService(ConnectivityManager::class.java)) }
+            requestSince = 0
+        }
+        DiagLog.add("link: app back on screen, looking for the camera now")
+        cooldownUntil = 0
+        registerScanReceiver()
+        startScan(now, force = true)
+        main.removeCallbacks(watch)
+        main.post(watch)
+    }
+
     fun disconnect(context: Context) {
         wanted = false
-        main.removeCallbacks(rejoin)
+        stopWatching()
         val cm = context.applicationContext.getSystemService(ConnectivityManager::class.java)
         release(cm)
         setState(STATE_DISCONNECTED)
