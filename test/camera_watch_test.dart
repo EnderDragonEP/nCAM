@@ -50,16 +50,14 @@ void main() {
   ) async {
     await open(tester);
     expect(
-      tester
-          .widget<SwitchListTile>(tile("Keep the camera's clock right"))
-          .value,
+      tester.widget<SwitchListTile>(tile("Background clock sync")).value,
       isFalse,
     );
     expect(watch.running, isFalse);
     // The extra choices only show while it is on.
-    expect(find.text('Hide the notification'), findsNothing);
+    expect(find.text('Hide notification'), findsNothing);
 
-    await tester.tap(tile("Keep the camera's clock right"));
+    await tester.tap(tile("Background clock sync"));
     await tester.pumpAndSettle();
     expect(watch.running, isTrue);
     expect(watch.ssid, 'NoodleCam');
@@ -68,12 +66,12 @@ void main() {
     expect(prefs.getBool('camera_watch'), isTrue);
 
     // Cutting the misnamed clip short can be turned off.
-    await tester.tap(tile('Start a new clip after fixing the clock'));
+    await tester.tap(tile('New clip after sync'));
     await tester.pumpAndSettle();
     expect(watch.newClip, isFalse);
     expect(prefs.getBool('camera_watch_new_clip'), isFalse);
 
-    await tester.tap(tile("Keep the camera's clock right"));
+    await tester.tap(tile("Background clock sync"));
     await tester.pumpAndSettle();
     expect(watch.running, isFalse);
   });
@@ -84,20 +82,17 @@ void main() {
     SharedPreferences.setMockInitialValues({'camera_watch': true});
     await open(tester);
     expect(watch.running, isTrue); // started again with the app
-    expect(
-      find.text('Without this, Samsung may stop the clock sync.'),
-      findsOneWidget,
-    );
+    expect(find.text('Keeps Android from stopping the sync.'), findsOneWidget);
 
-    await tester.tap(find.text('Run without battery limits'));
+    await tester.tap(find.text('No battery limits'));
     await tester.pumpAndSettle();
     expect(watch.calls, contains('askUnrestricted'));
     expect(
-      find.text("Allowed: Android won't stop the clock sync."),
+      find.text('Keeps Android from stopping the sync. (Allowed)'),
       findsOneWidget,
     );
 
-    await tester.tap(find.text('Hide the notification'));
+    await tester.tap(find.text('Hide notification'));
     await tester.pumpAndSettle();
     expect(watch.calls, contains('openNotificationSettings'));
   });
@@ -111,16 +106,14 @@ void main() {
     await c.read(sessionProvider.notifier).forget();
     await tester.pumpAndSettle();
     expect(watch.running, isFalse);
-    expect(find.text('Connect to the camera once first.'), findsOneWidget);
+    expect(find.text('Connect to the camera first.'), findsOneWidget);
   });
 
   testWidgets('cannot be turned on without a saved camera', (tester) async {
     store = MemoryCredentialStore();
     await open(tester);
     expect(
-      tester
-          .widget<SwitchListTile>(tile("Keep the camera's clock right"))
-          .onChanged,
+      tester.widget<SwitchListTile>(tile("Background clock sync")).onChanged,
       isNull,
     );
   });

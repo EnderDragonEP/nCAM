@@ -1591,67 +1591,67 @@ abstract class AppLocalizations {
   /// No description provided for @sectionBackground.
   ///
   /// In en, this message translates to:
-  /// **'In the background'**
+  /// **'Background'**
   String get sectionBackground;
 
   /// No description provided for @watchTitle.
   ///
   /// In en, this message translates to:
-  /// **'Keep the camera\'s clock right'**
+  /// **'Background clock sync'**
   String get watchTitle;
 
   /// No description provided for @watchHint.
   ///
   /// In en, this message translates to:
-  /// **'Joins the camera whenever it starts and sets its clock, even with nCAM closed.'**
+  /// **'Sets the camera clock whenever it starts.'**
   String get watchHint;
 
   /// No description provided for @watchNeedsCamera.
   ///
   /// In en, this message translates to:
-  /// **'Connect to the camera once first.'**
+  /// **'Connect to the camera first.'**
   String get watchNeedsCamera;
 
   /// No description provided for @watchNewClip.
   ///
   /// In en, this message translates to:
-  /// **'Start a new clip after fixing the clock'**
+  /// **'New clip after sync'**
   String get watchNewClip;
 
   /// No description provided for @watchNewClipHint.
   ///
   /// In en, this message translates to:
-  /// **'Cuts short the clip the camera began with the wrong time. Recording pauses for about 2 seconds.'**
+  /// **'Cuts the wrongly dated clip short (2 s gap).'**
   String get watchNewClipHint;
 
   /// No description provided for @watchBattery.
   ///
   /// In en, this message translates to:
-  /// **'Run without battery limits'**
+  /// **'No battery limits'**
   String get watchBattery;
 
-  /// No description provided for @watchBatteryOk.
+  /// Once allowed: the watchBatteryHint text, marked as allowed.
   ///
   /// In en, this message translates to:
-  /// **'Allowed: Android won\'t stop the clock sync.'**
-  String get watchBatteryOk;
+  /// **'{hint} (Allowed)'**
+  String watchBatteryOk(String hint);
 
   /// No description provided for @watchBatteryHint.
   ///
   /// In en, this message translates to:
-  /// **'Without this, Samsung may stop the clock sync.'**
+  /// **'Keeps Android from stopping the sync.'**
   String get watchBatteryHint;
 
   /// No description provided for @watchHideNotification.
   ///
   /// In en, this message translates to:
-  /// **'Hide the notification'**
+  /// **'Hide notification'**
   String get watchHideNotification;
 
   /// No description provided for @watchHideNotificationHint.
   ///
   /// In en, this message translates to:
-  /// **'Switch it off on the next screen; the clock sync keeps working.'**
+  /// **'The sync keeps running.'**
   String get watchHideNotificationHint;
 
   /// No description provided for @recordButton.

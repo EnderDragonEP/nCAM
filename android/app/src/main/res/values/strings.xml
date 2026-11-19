@@ -16,7 +16,7 @@
     <!-- Background clock sync. %1$s: the camera's Wi-Fi name, or a time (HH:mm). -->
     <string name="channel_watch">Background clock sync</string>
     <string name="channel_alerts">Camera alerts</string>
-    <string name="watch_title">Keeping the camera\'s clock right</string>
+    <string name="watch_title">Camera clock sync</string>
     <string name="watch_waiting">Waiting for %1$s</string>
     <string name="watch_setting_clock">Setting %1$s\'s clock…</string>
     <string name="watch_synced">Clock set at %1$s</string>

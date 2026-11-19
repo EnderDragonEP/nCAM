@@ -966,41 +966,39 @@ class AppLocalizationsEn extends AppLocalizations {
   String get autoPipHint => 'Float video when you leave the app.';
 
   @override
-  String get sectionBackground => 'In the background';
+  String get sectionBackground => 'Background';
 
   @override
-  String get watchTitle => 'Keep the camera\'s clock right';
+  String get watchTitle => 'Background clock sync';
 
   @override
-  String get watchHint =>
-      'Joins the camera whenever it starts and sets its clock, even with nCAM closed.';
+  String get watchHint => 'Sets the camera clock whenever it starts.';
 
   @override
-  String get watchNeedsCamera => 'Connect to the camera once first.';
+  String get watchNeedsCamera => 'Connect to the camera first.';
 
   @override
-  String get watchNewClip => 'Start a new clip after fixing the clock';
+  String get watchNewClip => 'New clip after sync';
 
   @override
-  String get watchNewClipHint =>
-      'Cuts short the clip the camera began with the wrong time. Recording pauses for about 2 seconds.';
+  String get watchNewClipHint => 'Cuts the wrongly dated clip short (2 s gap).';
 
   @override
-  String get watchBattery => 'Run without battery limits';
+  String get watchBattery => 'No battery limits';
 
   @override
-  String get watchBatteryOk => 'Allowed: Android won\'t stop the clock sync.';
+  String watchBatteryOk(String hint) {
+    return '$hint (Allowed)';
+  }
 
   @override
-  String get watchBatteryHint =>
-      'Without this, Samsung may stop the clock sync.';
+  String get watchBatteryHint => 'Keeps Android from stopping the sync.';
 
   @override
-  String get watchHideNotification => 'Hide the notification';
+  String get watchHideNotification => 'Hide notification';
 
   @override
-  String get watchHideNotificationHint =>
-      'Switch it off on the next screen; the clock sync keeps working.';
+  String get watchHideNotificationHint => 'The sync keeps running.';
 
   @override
   String get recordButton => 'Record button';

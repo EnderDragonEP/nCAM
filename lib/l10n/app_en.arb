@@ -865,17 +865,17 @@
   "syncOnConnectHint": "Set the camera clock to the phone's.",
   "autoPip": "Auto picture-in-picture",
   "autoPipHint": "Float video when you leave the app.",
-  "sectionBackground": "In the background",
-  "watchTitle": "Keep the camera's clock right",
-  "watchHint": "Joins the camera whenever it starts and sets its clock, even with nCAM closed.",
-  "watchNeedsCamera": "Connect to the camera once first.",
-  "watchNewClip": "Start a new clip after fixing the clock",
-  "watchNewClipHint": "Cuts short the clip the camera began with the wrong time. Recording pauses for about 2 seconds.",
-  "watchBattery": "Run without battery limits",
-  "watchBatteryOk": "Allowed: Android won't stop the clock sync.",
-  "watchBatteryHint": "Without this, Samsung may stop the clock sync.",
-  "watchHideNotification": "Hide the notification",
-  "watchHideNotificationHint": "Switch it off on the next screen; the clock sync keeps working.",
+  "sectionBackground": "Background",
+  "watchTitle": "Background clock sync",
+  "watchHint": "Sets the camera clock whenever it starts.",
+  "watchNeedsCamera": "Connect to the camera first.",
+  "watchNewClip": "New clip after sync",
+  "watchNewClipHint": "Cuts the wrongly dated clip short (2 s gap).",
+  "watchBattery": "No battery limits",
+  "watchBatteryOk": "{hint} (Allowed)",
+  "watchBatteryHint": "Keeps Android from stopping the sync.",
+  "watchHideNotification": "Hide notification",
+  "watchHideNotificationHint": "The sync keeps running.",
   "recordButton": "Record button",
   "recordButtonHint": "Side of the dock",
   "sideLeft": "Left",
@@ -1013,6 +1013,14 @@
   "@resetUnconfirmed": {
     "placeholders": {
       "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "@watchBatteryOk": {
+    "description": "Once allowed: the watchBatteryHint text, marked as allowed.",
+    "placeholders": {
+      "hint": {
         "type": "String"
       }
     }

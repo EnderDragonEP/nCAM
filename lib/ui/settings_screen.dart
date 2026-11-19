@@ -386,7 +386,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             unrestricted ? Icons.battery_full : Icons.battery_alert_outlined,
           ),
           title: Text(l.watchBattery),
-          subtitle: Text(unrestricted ? l.watchBatteryOk : l.watchBatteryHint),
+          subtitle: Text(
+            unrestricted
+                ? l.watchBatteryOk(l.watchBatteryHint)
+                : l.watchBatteryHint,
+          ),
           onTap: unrestricted
               ? null
               : () async {
