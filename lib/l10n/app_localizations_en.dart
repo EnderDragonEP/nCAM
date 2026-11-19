@@ -203,6 +203,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get linkLostHint => 'Rejoins when the camera is back in range.';
 
   @override
+  String linkWaiting(String name) {
+    return 'Waiting for $name';
+  }
+
+  @override
+  String get linkWaitingHint =>
+      'Background clock sync joins it when it starts.';
+
+  @override
   String get linkFirstTime =>
       'Enter the camera\'s Wi-Fi name and password once.';
 

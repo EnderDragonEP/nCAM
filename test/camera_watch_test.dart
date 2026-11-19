@@ -7,6 +7,7 @@ import 'package:ncam/state/camera_watch.dart';
 import 'package:ncam/state/credentials.dart';
 import 'package:ncam/state/downloads.dart';
 import 'package:ncam/state/session.dart';
+import 'package:ncam/ui/home_screen.dart';
 import 'package:ncam/ui/settings_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -14,32 +15,38 @@ void main() {
   late FakeWatchPlatform watch;
   late MemoryCredentialStore store;
 
-  Future<ProviderContainer> open(WidgetTester tester) async {
+  late FakeCameraTransport camera;
+
+  Future<ProviderContainer> open(
+    WidgetTester tester, {
+    Widget screen = const SettingsScreen(),
+  }) async {
     tester.view.physicalSize = const Size(1080, 6000);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          transportProvider.overrideWithValue(FakeCameraTransport()),
+          transportProvider.overrideWithValue(camera),
           downloaderProvider.overrideWithValue(FakeDownloader()),
           credentialStoreProvider.overrideWithValue(store),
           watchPlatformProvider.overrideWithValue(watch),
           cameraRetryDelayProvider.overrideWithValue(Duration.zero),
           clockProbeDelayProvider.overrideWithValue(Duration.zero),
         ],
-        child: const MaterialApp(home: SettingsScreen()),
+        child: MaterialApp(home: screen),
       ),
     );
     await tester.pumpAndSettle();
     return ProviderScope.containerOf(
-      tester.element(find.byType(SettingsScreen)),
+      tester.element(find.byType(screen.runtimeType)),
     );
   }
 
   Finder tile(String title) => find.widgetWithText(SwitchListTile, title);
 
   setUp(() {
+    camera = FakeCameraTransport();
     SharedPreferences.setMockInitialValues({});
     watch = FakeWatchPlatform();
     store = MemoryCredentialStore(const CameraCredentials('NoodleCam', 'x'));
@@ -107,6 +114,35 @@ void main() {
     await tester.pumpAndSettle();
     expect(watch.running, isFalse);
     expect(find.text('Connect to the camera first.'), findsOneWidget);
+  });
+
+  testWidgets(
+    'while it waits for the camera, the home page has nothing to cancel',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({'camera_watch': true});
+      await open(tester, screen: const HomeScreen());
+      expect(find.text('Connected to NoodleCam'), findsOneWidget);
+
+      // The camera goes away (the car is off): the clock sync waits for it.
+      camera.dropLink();
+      await tester.pumpAndSettle();
+      expect(find.text('Waiting for NoodleCam'), findsOneWidget);
+      expect(
+        find.text('Background clock sync joins it when it starts.'),
+        findsOneWidget,
+      );
+      expect(find.widgetWithText(TextButton, 'Cancel'), findsNothing);
+    },
+  );
+
+  testWidgets('without it, a lost camera can still be cancelled', (
+    tester,
+  ) async {
+    await open(tester, screen: const HomeScreen());
+    camera.dropLink();
+    await tester.pumpAndSettle();
+    expect(find.text('Lost NoodleCam'), findsOneWidget);
+    expect(find.widgetWithText(TextButton, 'Cancel'), findsOneWidget);
   });
 
   testWidgets('cannot be turned on without a saved camera', (tester) async {

@@ -7,6 +7,7 @@ import '../camera/models.dart';
 import '../camera/transport.dart';
 import '../downloads/downloader.dart';
 import '../l10n/l10n.dart';
+import '../state/camera_watch.dart';
 import '../state/downloads.dart';
 import '../state/session.dart';
 import '../state/sync_on_connect.dart';
@@ -112,7 +113,17 @@ class _LinkCard extends ConsumerWidget {
     final scheme = Theme.of(context).colorScheme;
     final l = context.l10n;
     final name = state.saved?.ssid ?? l.defaultCameraName;
+    // The background clock sync is waiting for the camera: nothing to cancel here, it
+    // is meant to go on (switch it off in Settings to stop it).
+    final watching =
+        state.link == LinkState.lost && ref.watch(cameraWatchProvider).enabled;
     final (icon, color, title, subtitle) = switch (state.link) {
+      _ when watching => (
+        Icons.more_time,
+        scheme.secondary,
+        l.linkWaiting(name),
+        l.linkWaitingHint,
+      ),
       LinkState.connected => (
         Icons.wifi,
         scheme.primary,
@@ -143,7 +154,7 @@ class _LinkCard extends ConsumerWidget {
         leading: Icon(icon, color: color, size: 32),
         title: Text(title),
         subtitle: Text(subtitle),
-        trailing: state.link == LinkState.disconnected
+        trailing: state.link == LinkState.disconnected || watching
             ? null
             : TextButton(
                 // The same action, named for what it does at the time: stop

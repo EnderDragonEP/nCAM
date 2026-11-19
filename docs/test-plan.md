@@ -250,7 +250,7 @@ The camera forgets the time whenever it loses power, and names its clips with th
 | N6 | Settings → "No battery limits" → allow. | The line ends in "(Allowed)". | |
 | N7 | Settings → "Hide notification" → switch the notification off. Repeat N2. | No notification; the clock is still set. | |
 | N8 | Restart the phone, then repeat N2 without opening nCAM. | The clock sync starts again by itself after the restart. | |
-| N9 | With the clock sync on, tap Disconnect on the home page. | The notification says "Paused: disconnected in the app"; Connect resumes it. | |
+| N9 | With the clock sync on and the camera off: open nCAM. Then, with the camera on and joined, tap Disconnect; switch the camera off for two minutes and on again. | The home page says "Waiting for NoodleCam" with no Cancel button. After Disconnect the notification says "Syncs when NoodleCam next starts"; nCAM stays off the camera until it restarts, then joins it and sets the clock. | |
 
 ## K. Acceptance: the four original problems
 

@@ -130,6 +130,7 @@ class CameraWatchService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        running = this
         DiagLog.init(this)
         createChannels(this)
         text = getString(R.string.watch_waiting, "…")
@@ -166,6 +167,7 @@ class CameraWatchService : Service() {
     }
 
     override fun onDestroy() {
+        if (running === this) running = null
         CameraLink.removeListener(linkListener)
         CameraLink.keepWaiting = false
         cancelNudge(this)
@@ -187,6 +189,7 @@ class CameraWatchService : Service() {
         when (state) {
             CameraLink.STATE_CONNECTED -> {
                 cancelNudge(this)
+                standingBy = false
                 if (was != CameraLink.STATE_CONNECTED) {
                     update(getString(R.string.watch_setting_clock, config.ssid))
                     worker.execute { syncClock(config) }
@@ -200,10 +203,40 @@ class CameraWatchService : Service() {
                 scheduleNudge(this)
             }
             CameraLink.STATE_DISCONNECTED -> {
-                cancelNudge(this)
-                if (!CameraLink.isWanted) update(getString(R.string.watch_paused))
+                // Disconnect or Cancel in the app: leave the camera alone for now, but not
+                // for good. Once its Wi-Fi has gone (the car is off), wait for it again.
+                if (!CameraLink.isWanted && !standingBy) {
+                    standingBy = true
+                    lastSeen = SystemClock.elapsedRealtime()
+                    standbySince = lastSeen
+                    lostSince = lastSeen // look often at first
+                    DiagLog.add("clock sync: standing by until ${config.ssid} goes away")
+                    update(getString(R.string.watch_standby, config.ssid))
+                    scheduleNudge(this)
+                }
             }
         }
+    }
+
+    /** Standing by after Disconnect: has the camera gone away yet? */
+    private fun checkStandby() {
+        if (!standingBy || CameraLink.isWanted) return
+        val now = SystemClock.elapsedRealtime()
+        val seen = CameraLink.lookForCamera()
+        if (seen == true) lastSeen = now
+        val gone = when (seen) {
+            null -> now - standbySince >= NO_SCANS_STANDBY_MS
+            else -> now - lastSeen >= GONE_MS
+        }
+        if (!gone) {
+            scheduleNudge(this)
+            return
+        }
+        val config = CameraWatch.config(this) ?: return
+        standingBy = false
+        DiagLog.add("clock sync: ${config.ssid} is gone; waiting for it to start again")
+        lostSince = now
+        CameraLink.waitFor(this, config.ssid, config.password)
     }
 
     /** Runs on [worker]. */
@@ -248,10 +281,24 @@ class CameraWatchService : Service() {
             .build()
     }
 
+    /** Disconnected in the app; waiting for the camera to go away before waiting again. */
+    private var standingBy = false
+    private var standbySince = 0L
+    private var lastSeen = 0L
+
     companion object {
         /** When the camera went missing, for spacing out the timer. */
         @Volatile
         var lostSince = SystemClock.elapsedRealtime()
+
+        /** Not in the scans for this long: the camera is off (the car has stopped). */
+        private const val GONE_MS = 90_000L
+
+        /** Without scans to tell, stand by this long instead. */
+        private const val NO_SCANS_STANDBY_MS = 10 * 60_000L
+
+        @Volatile
+        private var running: CameraWatchService? = null
 
         const val CHANNEL_WATCH = "camera_watch"
         const val CHANNEL_ALERTS = "camera_alerts"
@@ -340,6 +387,11 @@ class CameraWatchService : Service() {
             val lock = context.getSystemService(PowerManager::class.java)
                 .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ncam:camera-watch")
             lock.acquire(15_000)
+            val service = running
+            if (service != null && service.standingBy) {
+                service.checkStandby()
+                return
+            }
             CameraLink.nudge("timer", quiet = true)
             if (CameraWatch.isEnabled(context) && CameraLink.state != CameraLink.STATE_CONNECTED) {
                 scheduleNudge(context)

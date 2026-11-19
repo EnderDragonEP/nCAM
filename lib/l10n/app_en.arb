@@ -175,6 +175,16 @@
     }
   },
   "linkLostHint": "Rejoins when the camera is back in range.",
+  "linkWaiting": "Waiting for {name}",
+  "@linkWaiting": {
+    "description": "The background clock sync waits for the camera to start.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "linkWaitingHint": "Background clock sync joins it when it starts.",
   "linkFirstTime": "Enter the camera's Wi-Fi name and password once.",
   "linkSaved": "Saved camera: {name}",
   "@linkSaved": {

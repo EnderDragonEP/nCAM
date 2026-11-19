@@ -297,6 +297,16 @@ object CameraLink {
         main.postDelayed(watch, WATCH_MS)
     }
 
+    /**
+     * Whether the camera's Wi-Fi is in a recent scan (null if scans cannot be read), and
+     * asks for a new scan. For the background clock sync standing by after Disconnect.
+     */
+    fun lookForCamera(): Boolean? {
+        val now = SystemClock.elapsedRealtime()
+        startScan(now, force = false)
+        return cameraVisible(now)
+    }
+
     /** True if the camera's Wi-Fi was in a recent scan; null if scans cannot be read. */
     private fun cameraVisible(now: Long): Boolean? {
         val context = appContext ?: return null

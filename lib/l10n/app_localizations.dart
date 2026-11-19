@@ -418,6 +418,18 @@ abstract class AppLocalizations {
   /// **'Rejoins when the camera is back in range.'**
   String get linkLostHint;
 
+  /// The background clock sync waits for the camera to start.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for {name}'**
+  String linkWaiting(String name);
+
+  /// No description provided for @linkWaitingHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Background clock sync joins it when it starts.'**
+  String get linkWaitingHint;
+
   /// No description provided for @linkFirstTime.
   ///
   /// In en, this message translates to:

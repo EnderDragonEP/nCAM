@@ -22,7 +22,7 @@
     <string name="watch_synced">Clock set at %1$s</string>
     <string name="watch_synced_new_clip">Clock set at %1$s · new clip started</string>
     <string name="watch_failed">Could not set the clock: %1$s</string>
-    <string name="watch_paused">Paused: disconnected in the app</string>
+    <string name="watch_standby">Syncs when %1$s next starts</string>
     <string name="alert_not_recording">The camera is NOT recording</string>
     <string name="alert_not_recording_text">It did not start again after the clock was set.</string>
     <string name="alert_start_recording">Start recording</string>
