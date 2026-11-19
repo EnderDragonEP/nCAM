@@ -100,6 +100,11 @@ void main() {
     }
 
     Future<void> search(WidgetTester tester, String text) async {
+      if (find.byType(SearchBar).evaluate().isEmpty) {
+        // Behind the search button, as on Recordings.
+        await tester.tap(find.byTooltip('Search'));
+        await tester.pumpAndSettle();
+      }
       await tester.enterText(find.byType(SearchBar), text);
       await tester.pumpAndSettle();
     }
@@ -157,9 +162,10 @@ void main() {
       expect(find.byType(ClipThumbnail), findsNothing);
       expect(find.textContaining('No saved recording matches'), findsOneWidget);
 
-      await tester.tap(find.byTooltip('Clear search'));
+      await tester.tap(find.byTooltip('Close search'));
       await tester.pumpAndSettle();
       expect(find.byType(ClipThumbnail), findsNWidgets(2));
+      expect(find.byType(SearchBar), findsNothing);
     });
 
     testWidgets('deleting a recording forgets its name', (tester) async {

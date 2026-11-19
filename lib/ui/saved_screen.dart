@@ -27,6 +27,15 @@ class _SavedScreenState extends ConsumerState<SavedScreen> {
   final _search = TextEditingController();
   String _query = '';
 
+  /// The search box is open (from the search button, as on Recordings).
+  bool _searching = false;
+
+  void _closeSearch() => setState(() {
+    _search.clear();
+    _query = '';
+    _searching = false;
+  });
+
   @override
   void dispose() {
     _search.dispose();
@@ -153,40 +162,52 @@ class _SavedScreenState extends ConsumerState<SavedScreen> {
       );
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        leading: widget.onBack == null
-            ? null
-            : BackButton(onPressed: widget.onBack),
-        title: Text(l.savedTitle),
-        bottom: all.isEmpty
-            ? null
-            : PreferredSize(
-                preferredSize: const Size.fromHeight(64),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                  child: SearchBar(
-                    controller: _search,
-                    hintText: l.searchHint,
-                    leading: const Icon(Icons.search),
-                    elevation: const WidgetStatePropertyAll(0),
-                    onChanged: _setQuery,
-                    trailing: [
-                      if (_query.isNotEmpty)
+    return PopScope(
+      canPop: !_searching,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _closeSearch();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          leading: widget.onBack == null
+              ? null
+              : BackButton(onPressed: widget.onBack),
+          title: Text(l.savedTitle),
+          actions: [
+            IconButton(
+              tooltip: l.search,
+              onPressed: all.isEmpty || _searching
+                  ? null
+                  : () => setState(() => _searching = true),
+              icon: const Icon(Icons.search),
+            ),
+          ],
+          bottom: !_searching
+              ? null
+              : PreferredSize(
+                  preferredSize: const Size.fromHeight(64),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    child: SearchBar(
+                      controller: _search,
+                      autoFocus: true,
+                      hintText: l.searchHint,
+                      leading: const Icon(Icons.search),
+                      elevation: const WidgetStatePropertyAll(0),
+                      onChanged: _setQuery,
+                      trailing: [
                         IconButton(
-                          tooltip: l.clearSearch,
+                          tooltip: l.closeSearch,
                           icon: const Icon(Icons.close),
-                          onPressed: () {
-                            _search.clear();
-                            _setQuery('');
-                          },
+                          onPressed: _closeSearch,
                         ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
+        ),
+        body: body,
       ),
-      body: body,
     );
   }
 }
