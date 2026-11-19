@@ -79,4 +79,12 @@ abstract class CameraTransport {
 
   /// Keeps the phone's screen from turning off (for the live view).
   Future<void> keepScreenOn(bool on);
+
+  /// An address on the phone the video player can stream the camera file at [path]
+  /// from, without downloading it first.
+  Future<String> streamUrl(String path);
+
+  /// The camera link's Wi-Fi signal in dBm (around -40 is strong, below -75 weak), or
+  /// null when it is not known.
+  Future<int?> signalStrength();
 }

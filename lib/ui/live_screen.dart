@@ -4,18 +4,35 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/l10n.dart';
+import '../state/downloads.dart';
 import '../state/live.dart';
 import '../state/pip.dart';
 import 'zoomable_view.dart';
 
-class LiveScreen extends ConsumerWidget {
+class LiveScreen extends ConsumerStatefulWidget {
   const LiveScreen({super.key, this.onBack});
 
   /// When shown inside the dock, the back arrow returns to the home page.
   final VoidCallback? onBack;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<LiveScreen> createState() => _LiveScreenState();
+}
+
+class _LiveScreenState extends ConsumerState<LiveScreen> {
+  /// Tells the picture how to sit (the fit button).
+  final _fitCommand = FitCommand();
+  PictureFit _fit = PictureFit.whole;
+
+  @override
+  void dispose() {
+    _fitCommand.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final onBack = widget.onBack;
     final live = ref.watch(liveProvider);
     final controller = ref.read(liveProvider.notifier);
     final frame = live.frame;
@@ -34,6 +51,8 @@ class LiveScreen extends ConsumerWidget {
           leading: onBack == null ? null : BackButton(onPressed: onBack),
           title: Text(l.liveTitle),
           actions: [
+            if (frame != null)
+              FitButton(current: [_fit], onPressed: _fitCommand.apply),
             const PipButton(color: Colors.white),
             if (live.status == LiveStatus.playing)
               Center(
@@ -58,6 +77,8 @@ class LiveScreen extends ConsumerWidget {
                       // Pinch to fill the screen or zoom in, as in the player.
                       ZoomableView(
                         aspectRatio: _aspectOf(frame),
+                        fitCommand: _fitCommand,
+                        onFitChanged: (f) => setState(() => _fit = f),
                         child: Image.memory(
                           frame,
                           fit: BoxFit.fill,
@@ -67,6 +88,8 @@ class LiveScreen extends ConsumerWidget {
                           errorBuilder: (_, _, _) => const SizedBox.shrink(),
                         ),
                       ),
+                    if (live.status == LiveStatus.playing)
+                      Positioned(left: 8, top: 8, child: _LimitedNotice(live)),
                     if (live.status == LiveStatus.connecting)
                       Center(
                         child: Column(
@@ -140,6 +163,52 @@ class LiveScreen extends ConsumerWidget {
                     ),
                   ),
                 ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A small note over the picture when something holds the live view back: a download
+/// sharing the camera's Wi-Fi, a weak signal, or simply few pictures getting through.
+class _LimitedNotice extends ConsumerWidget {
+  const _LimitedNotice(this.live);
+  final LiveState live;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = context.l10n;
+    final downloading =
+        ref.watch(downloadJobsProvider).value?.any((j) => j.active) ?? false;
+    final signal = live.signal;
+    final weak = signal != null && signal < liveWeakSignal;
+    final fps = live.framesPerSecond;
+    final slow = fps > 0 && fps < liveSlowFps;
+    final reasons = [
+      if (downloading) l.liveReasonDownloading,
+      if (weak) l.liveReasonWeakSignal(signal),
+      if (slow && !downloading && !weak) l.liveReasonSlowLink,
+    ];
+    if (reasons.isEmpty) return const SizedBox.shrink();
+    return IgnorePointer(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.black54,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.speed, size: 14, color: Colors.white70),
+              const SizedBox(width: 4),
+              Text(
+                l.liveLimited(reasons.join(', ')),
+                style: const TextStyle(color: Colors.white, fontSize: 12),
+              ),
             ],
           ),
         ),

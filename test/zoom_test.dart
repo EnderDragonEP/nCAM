@@ -81,11 +81,11 @@ void main() {
     await pinch(tester, const Offset(400, 185), 200, 150);
     r = shown(tester);
     expect(r.height, closeTo(370, 0.5));
-    expect(find.text('Original'), findsOneWidget);
+    expect(find.text('Best fit'), findsOneWidget);
 
     // The label goes away by itself.
     await tester.pump(const Duration(seconds: 2));
-    expect(find.text('Original'), findsNothing);
+    expect(find.text('Best fit'), findsNothing);
   });
 
   testWidgets('pinching further zooms in, and a drag looks around', (

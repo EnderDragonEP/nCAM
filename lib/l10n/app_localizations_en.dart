@@ -90,9 +90,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchHint => 'Search names and dates';
 
   @override
-  String get clearSearch => 'Clear search';
-
-  @override
   String get closeSearch => 'Close search';
 
   @override
@@ -111,11 +108,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get diagnosticLog => 'Diagnostic log';
-
-  @override
-  String titleWithName(String name, String date) {
-    return '$name · $date';
-  }
 
   @override
   String get dayPattern => 'EEE d MMM y';
@@ -748,7 +740,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deleteFromPhone => 'Delete from this phone';
 
   @override
-  String get clipNotSaved => 'This clip isn\'t saved on the phone.';
+  String get clipNotSaved =>
+      'This clip isn\'t on the phone, and the camera isn\'t connected to play it from.';
 
   @override
   String clipPlayFailed(String detail) {
@@ -756,7 +749,40 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get zoomOriginal => 'Original';
+  String get playbackSpeed => 'Playback speed';
+
+  @override
+  String get speedNormal => 'Normal';
+
+  @override
+  String speedValue(String speed) {
+    return '$speed×';
+  }
+
+  @override
+  String get streamingFromCamera => 'Playing from the camera';
+
+  @override
+  String get playFromCamera => 'Play';
+
+  @override
+  String liveLimited(String reasons) {
+    return 'Live view limited: $reasons';
+  }
+
+  @override
+  String get liveReasonDownloading => 'a clip is downloading';
+
+  @override
+  String liveReasonWeakSignal(int dbm) {
+    return 'weak Wi-Fi ($dbm dBm)';
+  }
+
+  @override
+  String get liveReasonSlowLink => 'slow connection';
+
+  @override
+  String get zoomFit => 'Best fit';
 
   @override
   String get zoomFill => 'Zoomed to fill';
@@ -765,6 +791,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String zoomFactor(String factor) {
     return '$factor×';
   }
+
+  @override
+  String get zoomToFill => 'Zoom to fill';
+
+  @override
+  String get zoomToFit => 'Best fit';
 
   @override
   String get liveTitle => 'Live view';

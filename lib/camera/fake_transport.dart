@@ -60,6 +60,20 @@ class FakeCameraTransport implements CameraTransport {
   @override
   Future<void> keepScreenOn(bool on) async => screenKeptOn = on;
 
+  /// What [signalStrength] reports, in dBm.
+  int? signal = -50;
+
+  @override
+  Future<String> streamUrl(String path) async {
+    if (_state != LinkState.connected) {
+      throw const TransportException('io', 'not connected to the camera');
+    }
+    return 'http://127.0.0.1:8080/token$path';
+  }
+
+  @override
+  Future<int?> signalStrength() async => signal;
+
   @override
   Future<String> diagnosticLog() async => requests.join('\n');
 

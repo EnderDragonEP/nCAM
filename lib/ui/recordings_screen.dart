@@ -239,6 +239,8 @@ class _RecordingsScreenState extends ConsumerState<RecordingsScreen> {
                 }),
           onFile: _onFile,
           onDelete: () => _delete([r]),
+          // Saved or not: a clip that is not on the phone plays from the camera.
+          onPlay: session.connected && !r.beingWritten ? () => _play(r) : null,
         ),
       );
     }
@@ -427,6 +429,15 @@ class _RecordingsScreenState extends ConsumerState<RecordingsScreen> {
     );
   }
 
+  void _play(Recording r) {
+    final lens = _visibleFiles(r).firstOrNull?.lens ?? Lens.front;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PlayerScreen(recording: r, lens: lens),
+      ),
+    );
+  }
+
   void _onFile(FileView v) {
     final downloader = ref.read(downloaderProvider);
     switch (v.status) {
@@ -490,10 +501,12 @@ class _RecordingTile extends StatelessWidget {
     required this.onLongPress,
     required this.onFile,
     required this.onDelete,
+    this.onPlay,
     this.name,
   });
 
   final VoidCallback onDelete;
+  final VoidCallback? onPlay;
   final Recording recording;
 
   /// The name given to the recording on the phone, if any.
@@ -574,6 +587,17 @@ class _RecordingTile extends StatelessWidget {
                       Expanded(
                         child: Text(title, style: theme.textTheme.titleMedium),
                       ),
+                      if (!selecting && onPlay != null)
+                        SizedBox(
+                          height: 28,
+                          child: IconButton(
+                            tooltip: l.playFromCamera,
+                            padding: EdgeInsets.zero,
+                            iconSize: 22,
+                            onPressed: onPlay,
+                            icon: const Icon(Icons.play_circle_outline),
+                          ),
+                        ),
                       if (!selecting && !r.beingWritten)
                         SizedBox(
                           height: 28,

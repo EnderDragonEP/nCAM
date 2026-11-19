@@ -7,14 +7,50 @@ import 'package:flutter/material.dart';
 
 import '../l10n/l10n.dart';
 
-/// Above this, filling the space would crop too much of the picture to be a sensible
-/// "mode" (a wide clip on a tall screen); pinching then simply zooms.
+/// Above this, filling the space would crop too much of the picture for a pinch to
+/// snap to it (a wide clip on a tall screen); pinching then simply zooms. The fit
+/// button can still fill.
 const _maxFillCrop = 1.5;
+
+/// How a picture sits in its space.
+enum PictureFit {
+  /// The whole picture, as large as it fits ("best fit"), with bars where its shape differs from the
+  /// space's.
+  whole,
+
+  /// Filling the space ("zoomed to fill"), the edges cut off.
+  fill,
+
+  /// Zoomed in by hand.
+  zoomed,
+}
+
+/// What a page's fit button does next with pictures that sit as [current]: anything
+/// other than the whole picture goes back to it first; the whole picture goes to
+/// filling.
+PictureFit nextFit(Iterable<PictureFit> current) =>
+    current.every((f) => f == PictureFit.whole)
+    ? PictureFit.fill
+    : PictureFit.whole;
+
+/// Tells the pictures on a page how to sit (the page's fit button).
+class FitCommand extends ChangeNotifier {
+  PictureFit _fit = PictureFit.whole;
+
+  /// The last fit asked for.
+  PictureFit get fit => _fit;
+
+  void apply(PictureFit fit) {
+    _fit = fit;
+    notifyListeners();
+  }
+}
 
 /// Shows [child], a picture of [aspectRatio], the way the YouTube app does: the whole
 /// picture to start with; pinch out to fill the space (cropping the edges a little),
 /// pinch in to see the whole picture again, and keep pinching to zoom further, then
-/// drag to look around. A short label says which it is.
+/// drag to look around. A short label says which it is. The page's fit button
+/// ([fitCommand]) switches between the whole picture and filling.
 ///
 /// Taps are left to the widgets around it.
 class ZoomableView extends StatefulWidget {
@@ -22,16 +58,32 @@ class ZoomableView extends StatefulWidget {
     super.key,
     required this.aspectRatio,
     required this.child,
+    this.onFitChanged,
+    this.clip = true,
+    this.fitCommand,
+    this.onPinch,
   });
+
+  /// Told when two fingers start to zoom (the page can get its controls out of the
+  /// way).
+  final VoidCallback? onPinch;
+
+  /// Each time this notifies, the picture takes the fit it asks for.
+  final FitCommand? fitCommand;
+
+  /// Keep a zoomed picture inside the space; false lets it spread past the edges (the
+  /// page around it decides what shows there).
+  final bool clip;
 
   final double aspectRatio;
   final Widget child;
 
+  /// Told each time the picture starts to sit differently.
+  final ValueChanged<PictureFit>? onFitChanged;
+
   @override
   State<ZoomableView> createState() => ZoomableViewState();
 }
-
-enum _Mode { fit, fill, zoom }
 
 class ZoomableViewState extends State<ZoomableView>
     with SingleTickerProviderStateMixin {
@@ -40,8 +92,12 @@ class ZoomableViewState extends State<ZoomableView>
 
   /// How far the picture's centre is from the space's centre, in pixels.
   Offset _offset = Offset.zero;
-  _Mode _mode = _Mode.fit;
+  PictureFit _fit = PictureFit.whole;
   Size _box = Size.zero;
+
+  /// Filling was asked for with the fit button, so it stays even where a pinch would
+  /// not snap to it.
+  bool _fillChosen = false;
 
   double _startScale = 1;
   Offset _startOffset = Offset.zero;
@@ -57,15 +113,54 @@ class ZoomableViewState extends State<ZoomableView>
 
   String? _label;
   Timer? _hideLabel;
+  PictureFit _toldFit = PictureFit.whole;
+
+  void _tellFit() {
+    if (_fit == _toldFit) return;
+    _toldFit = _fit;
+    widget.onFitChanged?.call(_fit);
+  }
 
   /// The zoom, where 1 is the whole picture.
   double get scale => _scale;
 
+  /// How the picture sits now.
+  PictureFit get fit => _fit;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.fitCommand?.addListener(_onCommand);
+  }
+
+  @override
+  void didUpdateWidget(ZoomableView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.fitCommand != widget.fitCommand) {
+      oldWidget.fitCommand?.removeListener(_onCommand);
+      widget.fitCommand?.addListener(_onCommand);
+    }
+  }
+
   @override
   void dispose() {
+    widget.fitCommand?.removeListener(_onCommand);
     _settle.dispose();
     _hideLabel?.cancel();
     super.dispose();
+  }
+
+  void _onCommand() => setFit(widget.fitCommand!.fit);
+
+  /// Shows the whole picture, or fills the space, centred.
+  void setFit(PictureFit fit) {
+    if (!mounted || fit == PictureFit.zoomed) return;
+    _fit = fit;
+    _fillChosen = fit == PictureFit.fill;
+    _animateTo(fit == PictureFit.fill ? _fillScale(_box) : 1, Offset.zero);
+    _tellFit();
+    final l = context.l10n;
+    _say(fit == PictureFit.fill ? l.zoomFill : l.zoomFit);
   }
 
   Size _fitSize(Size box) {
@@ -126,10 +221,14 @@ class ZoomableViewState extends State<ZoomableView>
     _startOffset = _offset;
     _startFocal = d.localFocalPoint;
     _pinched = d.pointerCount > 1;
+    if (_pinched) widget.onPinch?.call();
   }
 
   void _onUpdate(ScaleUpdateDetails d) {
-    if (d.pointerCount > 1) _pinched = true;
+    if (d.pointerCount > 1 && !_pinched) {
+      _pinched = true;
+      widget.onPinch?.call();
+    }
     final box = _box;
     final centre = box.center(Offset.zero);
     // Slightly past the ends while pinching, so the snap back can be felt.
@@ -140,7 +239,7 @@ class ZoomableViewState extends State<ZoomableView>
     setState(() {
       _scale = scale;
       _offset = _clampOffset(offset, scale, box);
-      _mode = _Mode.zoom;
+      if (_pinched) _fit = PictureFit.zoomed;
     });
   }
 
@@ -153,33 +252,38 @@ class ZoomableViewState extends State<ZoomableView>
     if (!_pinched) {
       // A drag: only the position changes.
       target = _scale;
-      _mode = _scale <= 1.001
-          ? _Mode.fit
-          : (fillMode && (_scale - fill).abs() < 0.001)
-          ? _Mode.fill
-          : _Mode.zoom;
+      if (_offset != Offset.zero && _fit == PictureFit.fill) {
+        _fit = PictureFit.zoomed;
+      }
     } else if (_scale <= 1.02) {
       target = 1;
-      _mode = _Mode.fit;
+      _fit = PictureFit.whole;
     } else if (fillMode && _scale < fill) {
       // Between the two: pinching out fills, pinching in shows everything.
       final zoomingIn = _scale > _startScale;
       target = zoomingIn ? fill : 1;
-      _mode = zoomingIn ? _Mode.fill : _Mode.fit;
+      _fit = zoomingIn ? PictureFit.fill : PictureFit.whole;
     } else if (fillMode && _scale <= fill * 1.25) {
       // Just past filling: a pinch rarely stops exactly there.
       target = fill;
-      _mode = _Mode.fill;
+      _fit = PictureFit.fill;
     } else {
       target = _scale.clamp(1, _maxScale(box));
-      _mode = _Mode.zoom;
+      _fit = PictureFit.zoomed;
     }
-    _animateTo(target, _clampOffset(_offset, target, box));
+    if (_pinched) _fillChosen = false;
+    _animateTo(
+      target,
+      _fit == PictureFit.zoomed
+          ? _clampOffset(_offset, target, box)
+          : Offset.zero,
+    );
+    _tellFit();
     if (_pinched) {
-      _say(switch (_mode) {
-        _Mode.fit => l.zoomOriginal,
-        _Mode.fill => l.zoomFill,
-        _Mode.zoom => l.zoomFactor(target.toStringAsFixed(1)),
+      _say(switch (_fit) {
+        PictureFit.whole => l.zoomFit,
+        PictureFit.fill => l.zoomFill,
+        PictureFit.zoomed => l.zoomFactor(target.toStringAsFixed(1)),
       });
     }
   }
@@ -189,22 +293,26 @@ class ZoomableViewState extends State<ZoomableView>
     if (_box == box) return;
     _box = box;
     _settle.stop();
-    switch (_mode) {
-      case _Mode.fit:
+    switch (_fit) {
+      case PictureFit.whole:
         _scale = 1;
         _offset = Offset.zero;
-      case _Mode.fill:
-        if (_fillIsAMode(box)) {
+      case PictureFit.fill:
+        if (_fillChosen || _fillIsAMode(box)) {
           _scale = _fillScale(box);
         } else {
           _scale = 1;
-          _mode = _Mode.fit;
+          _fit = PictureFit.whole;
         }
         _offset = Offset.zero;
-      case _Mode.zoom:
+      case PictureFit.zoomed:
         _scale = _scale.clamp(1, _maxScale(box));
         _offset = _clampOffset(_offset, _scale, box);
     }
+    // Filling may have stopped making sense; say so once this frame is built.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _tellFit();
+    });
   }
 
   @override
@@ -217,6 +325,8 @@ class ZoomableViewState extends State<ZoomableView>
         final w = fit.width * _scale;
         final h = fit.height * _scale;
         return RawGestureDetector(
+          // The whole space, bars beside the picture included, takes a pinch.
+          behavior: HitTestBehavior.opaque,
           gestures: {
             _PinchRecognizer:
                 GestureRecognizerFactoryWithHandlers<_PinchRecognizer>(
@@ -230,9 +340,11 @@ class ZoomableViewState extends State<ZoomableView>
                 ),
           },
           child: ClipRect(
+            clipBehavior: widget.clip ? Clip.hardEdge : Clip.none,
             child: SizedBox.fromSize(
               size: box,
               child: Stack(
+                clipBehavior: Clip.none,
                 children: [
                   Positioned(
                     left: (box.width - w) / 2 + _offset.dx,
@@ -269,6 +381,37 @@ class ZoomableViewState extends State<ZoomableView>
           ),
         );
       },
+    );
+  }
+}
+
+/// A page's fit button: shows the whole picture when anything else is on screen, and
+/// fills the space when the whole picture is. Its icon and tooltip say which comes next.
+class FitButton extends StatelessWidget {
+  const FitButton({
+    super.key,
+    required this.current,
+    required this.onPressed,
+    this.color,
+  });
+
+  /// How the page's pictures sit now.
+  final Iterable<PictureFit> current;
+
+  /// Called with the fit to apply.
+  final ValueChanged<PictureFit> onPressed;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final next = nextFit(current);
+    final fill = next == PictureFit.fill;
+    return IconButton(
+      tooltip: fill ? l.zoomToFill : l.zoomToFit,
+      color: color,
+      icon: Icon(fill ? Icons.zoom_out_map : Icons.fit_screen_outlined),
+      onPressed: () => onPressed(next),
     );
   }
 }

@@ -11,7 +11,12 @@ import 'package:ncam/downloads/fake_downloader.dart';
 import 'package:ncam/state/credentials.dart';
 import 'package:ncam/state/downloads.dart';
 import 'package:ncam/state/session.dart';
+import 'package:ncam/ui/player_screen.dart';
 import 'package:ncam/ui/recordings_screen.dart';
+import 'package:video_player_platform_interface/video_player_platform_interface.dart';
+
+import 'fake_video_player.dart';
+
 import 'package:shared_preferences/shared_preferences.dart';
 
 CameraFile file(String name, int size, DateTime written) => CameraFile(
@@ -261,6 +266,21 @@ void main() {
       expect(find.text('List read. Recording again.'), findsOneWidget);
       expect(find.text('19:22:57 · 45 s'), findsOneWidget);
       expect(camera.recordingSeconds, greaterThan(0));
+    });
+
+    testWidgets('a recording can be played from the camera without saving it', (
+      tester,
+    ) async {
+      VideoPlayerPlatform.instance = FakeVideoPlayer();
+      await open(tester);
+      // The clip being recorded cannot be played yet; the two finished ones can.
+      expect(find.byTooltip('Play'), findsNWidgets(2));
+      await tester.tap(find.byTooltip('Play').first);
+      await tester.pumpAndSettle();
+      expect(find.byType(PlayerScreen), findsOneWidget);
+      expect(find.byTooltip('Playing from the camera'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
     });
 
     testWidgets('search narrows the list by name or by date and time', (

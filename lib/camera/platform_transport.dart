@@ -117,6 +117,17 @@ class PlatformCameraTransport implements CameraTransport {
   Future<void> keepScreenOn(bool on) =>
       _guard(() => _methods.invokeMethod<void>('keepScreenOn', {'on': on}));
 
+  @override
+  Future<String> streamUrl(String path) async =>
+      await _guard<String?>(
+        () => _methods.invokeMethod<String>('streamUrl', {'path': path}),
+      ) ??
+      (throw const TransportException('io', 'no stream address'));
+
+  @override
+  Future<int?> signalStrength() =>
+      _guard(() => _methods.invokeMethod<int>('signal'));
+
   Future<T> _guard<T>(Future<T> Function() call) async {
     try {
       return await call();

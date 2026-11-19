@@ -3,7 +3,10 @@ package dev.ender.ncam
 import android.Manifest
 import android.app.Activity
 import android.content.pm.PackageManager
+import android.net.ConnectivityManager
+import android.net.wifi.WifiInfo
 import android.net.wifi.WifiManager
+import android.view.accessibility.AccessibilityManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -169,6 +172,40 @@ class CameraBridge(private val activity: Activity, messenger: BinaryMessenger) :
             }
 
             "scan" -> scan(result)
+
+            // Where the video player can stream a camera file from (see StreamProxy).
+            "streamUrl" -> {
+                val path = call.argument<String>("path").orEmpty()
+                io.execute {
+                    try {
+                        val url = StreamProxy.url(path)
+                        main.post { result.success(url) }
+                    } catch (e: Exception) {
+                        main.post { result.error("io", e.message, null) }
+                    }
+                }
+            }
+
+            // The camera link's signal strength in dBm, or null.
+            "signal" -> {
+                val cm = activity.getSystemService(ConnectivityManager::class.java)
+                val info = CameraLink.network?.let { cm.getNetworkCapabilities(it) }?.transportInfo
+                val rssi = (info as? WifiInfo)?.rssi
+                result.success(if (rssi == null || rssi <= -127) null else rssi)
+            }
+
+            // How long on-screen controls may stay before hiding by themselves: the
+            // user's "time to take action" accessibility setting when it is longer.
+            "controlsTimeout" -> {
+                val ms = call.argument<Int>("ms") ?: 3_000
+                val am = activity.getSystemService(AccessibilityManager::class.java)
+                result.success(
+                    am.getRecommendedTimeoutMillis(
+                        ms,
+                        AccessibilityManager.FLAG_CONTENT_CONTROLS or AccessibilityManager.FLAG_CONTENT_ICONS,
+                    )
+                )
+            }
 
             // The wallpaper's accent colour (Material You), Android 12 and later.
             "wallpaperColor" -> result.success(

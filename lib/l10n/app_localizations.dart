@@ -250,12 +250,6 @@ abstract class AppLocalizations {
   /// **'Search names and dates'**
   String get searchHint;
 
-  /// No description provided for @clearSearch.
-  ///
-  /// In en, this message translates to:
-  /// **'Clear search'**
-  String get clearSearch;
-
   /// No description provided for @closeSearch.
   ///
   /// In en, this message translates to:
@@ -279,12 +273,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Diagnostic log'**
   String get diagnosticLog;
-
-  /// A recording's name and its date.
-  ///
-  /// In en, this message translates to:
-  /// **'{name} · {date}'**
-  String titleWithName(String name, String date);
 
   /// Pattern for day headings, e.g. "Wed 11 Nov 2026". Uses the letters of the intl package's DateFormat (EEE weekday, d day, MMM month, y year).
   ///
@@ -1207,7 +1195,7 @@ abstract class AppLocalizations {
   /// No description provided for @clipNotSaved.
   ///
   /// In en, this message translates to:
-  /// **'This clip isn\'t saved on the phone.'**
+  /// **'This clip isn\'t on the phone, and the camera isn\'t connected to play it from.'**
   String get clipNotSaved;
 
   /// No description provided for @clipPlayFailed.
@@ -1216,11 +1204,65 @@ abstract class AppLocalizations {
   /// **'This clip could not be played: {detail}'**
   String clipPlayFailed(String detail);
 
-  /// Shown briefly after pinching back to the whole picture (as in the YouTube app).
+  /// No description provided for @playbackSpeed.
   ///
   /// In en, this message translates to:
-  /// **'Original'**
-  String get zoomOriginal;
+  /// **'Playback speed'**
+  String get playbackSpeed;
+
+  /// The usual speed, 1×.
+  ///
+  /// In en, this message translates to:
+  /// **'Normal'**
+  String get speedNormal;
+
+  /// A playback speed, e.g. "1.5×".
+  ///
+  /// In en, this message translates to:
+  /// **'{speed}×'**
+  String speedValue(String speed);
+
+  /// No description provided for @streamingFromCamera.
+  ///
+  /// In en, this message translates to:
+  /// **'Playing from the camera'**
+  String get streamingFromCamera;
+
+  /// No description provided for @playFromCamera.
+  ///
+  /// In en, this message translates to:
+  /// **'Play'**
+  String get playFromCamera;
+
+  /// Over the live picture; {reasons} is one or more of the liveReason texts.
+  ///
+  /// In en, this message translates to:
+  /// **'Live view limited: {reasons}'**
+  String liveLimited(String reasons);
+
+  /// No description provided for @liveReasonDownloading.
+  ///
+  /// In en, this message translates to:
+  /// **'a clip is downloading'**
+  String get liveReasonDownloading;
+
+  /// No description provided for @liveReasonWeakSignal.
+  ///
+  /// In en, this message translates to:
+  /// **'weak Wi-Fi ({dbm} dBm)'**
+  String liveReasonWeakSignal(int dbm);
+
+  /// No description provided for @liveReasonSlowLink.
+  ///
+  /// In en, this message translates to:
+  /// **'slow connection'**
+  String get liveReasonSlowLink;
+
+  /// Shown briefly when the whole picture shows again, as large as it fits.
+  ///
+  /// In en, this message translates to:
+  /// **'Best fit'**
+  String get zoomFit;
 
   /// Shown briefly after pinching out so the picture fills the screen.
   ///
@@ -1233,6 +1275,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{factor}×'**
   String zoomFactor(String factor);
+
+  /// Fit button: fill the screen, cutting the edges off.
+  ///
+  /// In en, this message translates to:
+  /// **'Zoom to fill'**
+  String get zoomToFill;
+
+  /// Fit button: back to the whole picture, as large as it fits.
+  ///
+  /// In en, this message translates to:
+  /// **'Best fit'**
+  String get zoomToFit;
 
   /// No description provided for @liveTitle.
   ///

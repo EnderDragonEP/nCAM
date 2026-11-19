@@ -27,6 +27,7 @@ class LiveState {
     this.message,
     this.framesPerSecond = 0,
     this.viewIndex,
+    this.signal,
   });
 
   final LiveStatus status;
@@ -39,6 +40,9 @@ class LiveState {
   /// Which picture the camera is sending, as the camera's own index. Null if unknown.
   final int? viewIndex;
 
+  /// The camera link's Wi-Fi signal in dBm, read every few seconds; null if unknown.
+  final int? signal;
+
   static const _keep = Object();
 
   LiveState copyWith({
@@ -47,14 +51,22 @@ class LiveState {
     Object? message = _keep,
     int? framesPerSecond,
     int? viewIndex,
+    Object? signal = _keep,
   }) => LiveState(
     status: status ?? this.status,
     frame: frame ?? this.frame,
     message: message == _keep ? this.message : message as Msg?,
     framesPerSecond: framesPerSecond ?? this.framesPerSecond,
     viewIndex: viewIndex ?? this.viewIndex,
+    signal: signal == _keep ? this.signal : signal as int?,
   );
 }
+
+/// Live pictures per second below which the live view counts as slowed down.
+const liveSlowFps = 12;
+
+/// Signal below which the camera's Wi-Fi counts as weak, in dBm.
+const liveWeakSignal = -75;
 
 /// Alive only while the live screen is open; leaving the screen closes the stream.
 final liveProvider = NotifierProvider.autoDispose<LiveController, LiveState>(
@@ -73,6 +85,7 @@ class LiveController extends Notifier<LiveState> {
   bool _nudged = false;
   int _failures = 0;
   int _frames = 0;
+  int _ticks = 0;
   bool _disposed = false;
 
   /// The camera link itself is down; the stream reopens when it is back.
@@ -100,9 +113,18 @@ class LiveController extends Notifier<LiveState> {
         state = state.copyWith(framesPerSecond: _frames);
       }
       _frames = 0;
+      if (++_ticks % 3 == 1) _readSignal();
     });
     Future.microtask(_start);
     return const LiveState();
+  }
+
+  Future<void> _readSignal() async {
+    int? dbm;
+    try {
+      dbm = await _transport.signalStrength();
+    } catch (_) {}
+    if (!_disposed && dbm != state.signal) state = state.copyWith(signal: dbm);
   }
 
   Future<void> _start() async {

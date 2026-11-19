@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:video_player/video_player.dart';
 
 import '../camera/models.dart';
@@ -23,16 +24,48 @@ enum PlayerView { front, rear, both }
 /// taking the sound) shows as paused, and, with both clips, that the rear keeps step.
 const playerCheckInterval = Duration(milliseconds: 500);
 
-/// How long the landscape controls stay up once the clip plays untouched.
+/// How long overlaid controls stay up untouched, unless the phone's accessibility
+/// settings ask for longer.
 const playerControlsTimeout = Duration(seconds: 3);
+
+/// The playback speeds offered.
+const playerSpeeds = [
+  0.25,
+  0.5,
+  0.75,
+  1.0,
+  1.25,
+  1.5,
+  1.75,
+  2.0,
+  2.5,
+  3.0,
+  4.0,
+];
+
+/// How long on-screen controls may stay before hiding by themselves: Android's "time to
+/// take action" accessibility setting when it is longer than [playerControlsTimeout].
+final controlsTimeoutProvider = FutureProvider<Duration>((ref) async {
+  const fallback = playerControlsTimeout;
+  try {
+    final ms = await const MethodChannel('ncam/camera')
+        .invokeMethod<int>('controlsTimeout', {'ms': fallback.inMilliseconds});
+    return ms == null || ms < fallback.inMilliseconds
+        ? fallback
+        : Duration(milliseconds: ms);
+  } catch (_) {
+    return fallback;
+  }
+});
 
 /// When the rear clip is too far out of step to catch up gently, it jumps this far
 /// ahead of the front, because the jump itself takes a moment in these files.
 const playerSeekLead = Duration(milliseconds: 300);
 
-/// Plays a recording from the phone's copy: the front clip, the rear clip, or both
-/// together (one above the other in portrait, side by side in landscape). Switching
-/// keeps the position. Landscape uses the whole screen, with the controls on top.
+/// Plays a recording: the front clip, the rear clip, or both together (one above the
+/// other in portrait, side by side in landscape). Each clip plays from the phone's copy,
+/// or straight from the camera when it is not saved. Switching keeps the position.
+/// Landscape, and a zoomed picture, use the whole screen with the controls on top.
 class PlayerScreen extends ConsumerStatefulWidget {
   const PlayerScreen({super.key, required this.recording, required this.lens});
   final Recording recording;
@@ -71,17 +104,38 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
   /// Checks in a row that found the leading clip stopped although it should play.
   int _stalled = 0;
-  double _rearSpeed = 1;
+
+  /// The speed the user picked; the rear clip runs at this times [_rearFactor].
+  double _speed = 1;
+  double _rearFactor = 1;
+
+  /// A clip on screen comes from the camera rather than the phone.
+  bool _streaming = false;
 
   bool _controlsShown = true;
   Timer? _hideControls;
   bool _immersive = false;
+  Duration _hideAfter = playerControlsTimeout;
+
+  /// A screen reader is on: controls never hide by themselves.
+  bool _accessible = false;
+
+  /// How each clip on screen sits; a clip not listed shows whole.
+  final _fits = <Object, PictureFit>{};
+  bool get _isZoomed => _fits.values.any((f) => f != PictureFit.whole);
+
+  /// Keeps the pictures (and their zoom) when the layout around them changes.
+  final _pictureKey = GlobalKey();
+
+  /// Tells every clip on screen how to sit (the fit button).
+  final _fitCommand = FitCommand();
 
   @override
   void initState() {
     super.initState();
     _transport = ref.read(transportProvider)..keepScreenOn(true).ignore();
     _check = Timer.periodic(playerCheckInterval, (_) => _checkClips());
+    ref.read(controlsTimeoutProvider.future).then((d) => _hideAfter = d);
     _open(_view);
   }
 
@@ -90,6 +144,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     _generation++;
     _check?.cancel();
     _hideControls?.cancel();
+    _fitCommand.dispose();
     _main?.dispose();
     _rear?.dispose();
     if (_immersive) {
@@ -106,28 +161,46 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     return d;
   }
 
-  /// [follower] is the muted rear clip. Each Android player otherwise takes the
-  /// sound focus when it starts, which pauses the app's other player, so the two
-  /// clips would take turns instead of playing together.
-  Future<VideoPlayerController> _load(
+  /// Whether [f] can be played from the camera: connected, a real file on the card,
+  /// and not the clip being recorded (it is still growing).
+  bool _onCamera(CameraFile f) {
+    final s = ref.read(sessionProvider);
+    return s.connected && f.path.startsWith('/') && !s.writing.contains(f.path);
+  }
+
+  /// The phone's copy of [file], or the camera's. [follower] is the muted rear clip.
+  /// Each Android player otherwise takes the sound focus when it starts, which pauses
+  /// the app's other player, so the two clips would take turns instead of playing
+  /// together.
+  Future<({VideoPlayerController controller, bool streamed})> _load(
     CameraFile? file, {
     required bool follower,
   }) async {
-    final uri = file == null
-        ? null
-        : await ref.read(downloaderProvider).localUri(file.name);
-    if (uri == null) throw const _NotSaved();
-    final c = VideoPlayerController.contentUri(
-      Uri.parse(uri),
-      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: follower),
-    );
+    if (file == null) throw const _NotSaved();
+    final options = VideoPlayerOptions(mixWithOthers: follower);
+    final local = await ref.read(downloaderProvider).localUri(file.name);
+    final VideoPlayerController c;
+    if (local != null) {
+      c = VideoPlayerController.contentUri(
+        Uri.parse(local),
+        videoPlayerOptions: options,
+      );
+    } else if (_onCamera(file)) {
+      final url = await _transport.streamUrl(file.path);
+      c = VideoPlayerController.networkUrl(
+        Uri.parse(url),
+        videoPlayerOptions: options,
+      );
+    } else {
+      throw const _NotSaved();
+    }
     try {
       await c.initialize();
     } catch (_) {
       await c.dispose();
       rethrow;
     }
-    return c;
+    return (controller: c, streamed: local == null);
   }
 
   Future<void> _open(PlayerView view) async {
@@ -145,19 +218,26 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     });
     VideoPlayerController? main;
     VideoPlayerController? rear;
+    var streamed = false;
     try {
       // The leading clip is made first: the sound setting is shared by the players
       // made after it.
-      main = await _load(
+      final first = await _load(
         view == PlayerView.rear
             ? widget.recording.rear
             : widget.recording.front ?? widget.recording.other,
         follower: false,
       );
+      main = first.controller;
+      streamed = first.streamed;
       if (view == PlayerView.both) {
-        rear = await _load(widget.recording.rear, follower: true);
+        final second = await _load(widget.recording.rear, follower: true);
+        rear = second.controller;
+        streamed |= second.streamed;
         await rear.setVolume(0);
       }
+      await main.setPlaybackSpeed(_speed);
+      await rear?.setPlaybackSpeed(_speed);
       if (at != null) {
         await main.seekTo(_clamp(at, main.value.duration));
         await rear?.seekTo(_clamp(at, rear.value.duration));
@@ -171,8 +251,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         _main = main;
         _rear = rear;
         _loading = false;
+        _streaming = streamed;
+        _fits.clear();
       });
-      _rearSpeed = 1;
+      _rearFactor = 1;
       _stalled = 0;
       _quiet = 2;
       // The old players go once their pictures have left the screen, and the new
@@ -218,7 +300,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
   Future<void> _pause() async {
     if (mounted) setState(() => _playing = false);
-    _showControls();
+    _touchControls();
     await Future.wait([?_main?.pause(), ?_rear?.pause()]);
   }
 
@@ -233,7 +315,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       m.seekTo(_clamp(position, m.value.duration)),
       if (r != null) r.seekTo(_clamp(position, r.value.duration)),
     ]);
-    if (r != null) await _setRearSpeed(r, 1);
+    if (r != null) await _setRearFactor(r, 1);
   }
 
   /// While the seek bar is dragged only the leading clip follows; the rear joins it
@@ -246,10 +328,18 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     await m.seekTo(_clamp(position, m.value.duration));
   }
 
-  Future<void> _setRearSpeed(VideoPlayerController r, double speed) async {
-    if (speed == _rearSpeed) return;
-    _rearSpeed = speed;
-    await r.setPlaybackSpeed(speed);
+  Future<void> _setSpeed(double speed) async {
+    setState(() => _speed = speed);
+    _touchControls();
+    await _main?.setPlaybackSpeed(speed);
+    await _rear?.setPlaybackSpeed(speed * _rearFactor);
+  }
+
+  /// Runs the rear clip a little faster or slower than the chosen speed.
+  Future<void> _setRearFactor(VideoPlayerController r, double factor) async {
+    if (factor == _rearFactor) return;
+    _rearFactor = factor;
+    await r.setPlaybackSpeed(_speed * factor);
   }
 
   Future<void> _checkClips() async {
@@ -303,13 +393,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final ahead = (rear - front).inMilliseconds;
     if (ahead.abs() > 1500) {
       await r.seekTo(_clamp(front + playerSeekLead, rv.duration));
-      await _setRearSpeed(r, 1);
+      await _setRearFactor(r, 1);
       _quiet = 3;
     } else if (ahead.abs() > 80) {
-      final speed = (1 - ahead / 2000).clamp(0.75, 1.25);
-      await _setRearSpeed(r, (speed * 20).round() / 20);
+      final factor = (1 - ahead / 2000).clamp(0.75, 1.25);
+      await _setRearFactor(r, (factor * 20).round() / 20);
     } else {
-      await _setRearSpeed(r, 1);
+      await _setRearFactor(r, 1);
     }
   }
 
@@ -328,23 +418,46 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     }
   }
 
-  // ---- Landscape controls ------------------------------------------------------------
+  // ---- Overlaid controls -------------------------------------------------------------
+
+  bool _landscape = false;
+
+  /// The bars hide by themselves whenever they lie over the clips (landscape, or a
+  /// zoomed picture spreading under them), but never with a screen reader on.
+  bool get _autoHide => (_landscape || _isZoomed) && !_accessible;
 
   void _showControls() {
     _hideControls?.cancel();
     if (!_controlsShown && mounted) setState(() => _controlsShown = true);
   }
 
-  /// Shows the controls and, while playing, hides them again after a while.
+  /// Shows the controls and, where they hide by themselves, hides them again after a
+  /// while.
   void _touchControls() {
     _showControls();
-    _hideControls = Timer(playerControlsTimeout, () {
-      if (mounted && _playing) setState(() => _controlsShown = false);
+    if (!_autoHide) return;
+    _hideControls = Timer(_hideAfter, () {
+      if (mounted && _autoHide) setState(() => _controlsShown = false);
     });
   }
 
+  /// Two fingers on a picture: the bars get out of the way at once. A tap brings them
+  /// back.
+  void _hideForZoom() {
+    if (_accessible || !mounted) return;
+    _hideControls?.cancel();
+    if (_controlsShown) setState(() => _controlsShown = false);
+  }
+
+  void _onFit(Object clip, PictureFit fit) {
+    if (!mounted) return;
+    setState(() => _fits[clip] = fit);
+    // Back to the whole picture: the bars return (and stay where they may).
+    if (!_isZoomed) _touchControls();
+  }
+
   void _toggleControls() {
-    if (_controlsShown && _playing) {
+    if (_controlsShown && _autoHide) {
       _hideControls?.cancel();
       setState(() => _controlsShown = false);
     } else {
@@ -365,13 +478,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
   /// One clip. On the page it can be pinched to fill the space or zoomed (each clip on
   /// its own when both are shown); the floating window shows it whole.
-  static Widget _video(
-    VideoPlayerController c, {
-    String? label,
-    bool zoom = true,
-  }) {
+  Widget _video(VideoPlayerController c, {String? label, bool zoom = true}) {
     final picture = VideoPlayer(c);
     return Stack(
+      clipBehavior: Clip.none,
       children: [
         Positioned.fill(
           child: zoom
@@ -379,6 +489,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                   // A new clip starts whole again.
                   key: ObjectKey(c),
                   aspectRatio: c.value.aspectRatio,
+                  // A zoomed clip may spread under the bars; the page decides
+                  // where it must stop (see _pair).
+                  clip: false,
+                  fitCommand: _fitCommand,
+                  onPinch: _hideForZoom,
+                  onFitChanged: (f) => _onFit(c, f),
                   child: picture,
                 )
               : Center(
@@ -428,36 +544,43 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       builder: (context, box) {
         final wide = sideBySide ?? box.maxWidth > box.maxHeight;
         final l = context.l10n;
+        // A zoomed clip may spread under the bars and off the screen, but never
+        // over the other clip: each is cut only along the edge they share.
+        Widget cut(Widget clip, AxisDirection edge) =>
+            ClipRect(clipper: _CutAlong(edge), child: clip);
         final a = _video(front, label: labels ? l.front : null, zoom: zoom);
         final b = _video(rear, label: labels ? l.rear : null, zoom: zoom);
         return wide
             ? Row(
                 children: [
-                  Expanded(child: a),
+                  Expanded(child: cut(a, AxisDirection.right)),
                   const SizedBox(width: 4),
-                  Expanded(child: b),
+                  Expanded(child: cut(b, AxisDirection.left)),
                 ],
               )
             : Column(
                 children: [
-                  Expanded(child: a),
+                  Expanded(child: cut(a, AxisDirection.down)),
                   const SizedBox(height: 4),
-                  Expanded(child: b),
+                  Expanded(child: cut(b, AxisDirection.up)),
                 ],
               );
       },
     );
   }
 
-  Widget _picker() {
+  Widget _picker(Set<PlayerView> views) {
     final l = context.l10n;
     return Theme(
       data: ThemeData.dark(useMaterial3: true),
       child: SegmentedButton<PlayerView>(
         segments: [
-          ButtonSegment(value: PlayerView.front, label: Text(l.front)),
-          ButtonSegment(value: PlayerView.rear, label: Text(l.rear)),
-          ButtonSegment(value: PlayerView.both, label: Text(l.both)),
+          if (views.contains(PlayerView.front))
+            ButtonSegment(value: PlayerView.front, label: Text(l.front)),
+          if (views.contains(PlayerView.rear))
+            ButtonSegment(value: PlayerView.rear, label: Text(l.rear)),
+          if (views.contains(PlayerView.both))
+            ButtonSegment(value: PlayerView.both, label: Text(l.both)),
         ],
         selected: {_view},
         showSelectedIcon: false,
@@ -469,7 +592,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     );
   }
 
-  /// Fades a landscape control bar in and out; hidden bars cannot be tapped.
+  /// Fades a bar in and out; hidden bars cannot be tapped.
   Widget _overlay({required Widget child, required bool top}) {
     return IgnorePointer(
       ignoring: !_controlsShown,
@@ -496,12 +619,25 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final l = context.l10n;
     final local = ref.watch(localFilesProvider).value ?? const {};
     final inPip = ref.watch(pipProvider.select((s) => s.inPip));
+    // Rebuilt when the camera comes or goes, for what can be streamed; a clip that
+    // could not be opened without it is tried again once it is there.
+    ref.watch(sessionProvider.select((s) => (s.connected, s.writing)));
+    ref.listen(sessionProvider.select((s) => s.connected), (was, now) {
+      if (now && was != true && _main == null && _error != null) _open(_view);
+    });
+    _accessible = MediaQuery.accessibleNavigationOf(context);
     final r = widget.recording;
-    final bothSaved =
-        r.front != null &&
-        r.rear != null &&
-        local.containsKey(r.front!.name) &&
-        local.containsKey(r.rear!.name);
+    bool saved(CameraFile? f) => f != null && local.containsKey(f.name);
+    bool playable(CameraFile? f) => saved(f) || (f != null && _onCamera(f));
+    final views = {
+      if (playable(r.front)) PlayerView.front,
+      if (playable(r.rear)) PlayerView.rear,
+      if (playable(r.front) &&
+          playable(r.rear) &&
+          (saved(r.front) || saved(r.rear)))
+        PlayerView.both,
+    };
+    final canPick = r.front != null && r.rear != null && views.length > 1;
     final main = _main;
     final rear = _rear;
     final time = r.time;
@@ -510,6 +646,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final ratio = main?.value.aspectRatio ?? 16 / 9;
     final landscape =
         MediaQuery.orientationOf(context) == Orientation.landscape;
+    if (landscape != _landscape) {
+      // Turned: the bars now lie over the clips (or no longer do).
+      _landscape = landscape;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _touchControls();
+      });
+    }
     _setImmersive(landscape && !inPip);
 
     final Widget picture = _error != null
@@ -526,13 +669,37 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         : main == null
         ? const Center(child: CircularProgressIndicator(color: Colors.white))
         : Stack(
+            clipBehavior: Clip.none,
             children: [
               Positioned.fill(
                 child: rear != null ? _pair(main, rear) : _video(main),
               ),
-              if (_loading)
-                const Center(
-                  child: CircularProgressIndicator(color: Colors.white),
+              // Loading, or waiting for the camera's Wi-Fi to catch up.
+              Positioned.fill(
+                child: ValueListenableBuilder<VideoPlayerValue>(
+                  valueListenable: main,
+                  builder: (context, v, _) =>
+                      _loading || (_playing && v.isBuffering)
+                      ? const Center(
+                          child: CircularProgressIndicator(color: Colors.white),
+                        )
+                      : const SizedBox.shrink(),
+                ),
+              ),
+              if (_streaming)
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: IgnorePointer(
+                    child: Tooltip(
+                      message: l.streamingFromCamera,
+                      child: const Icon(
+                        Icons.wifi,
+                        size: 18,
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ),
                 ),
             ],
           );
@@ -544,104 +711,113 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       pause: _pause,
       seek: _seek,
       preview: _preview,
+      speed: _speed,
+      setSpeed: _setSpeed,
       compact: compact,
-      trailing: compact && bothSaved ? _picker() : null,
+      trailing: compact && canPick ? _picker(views) : null,
     );
-
-    final Widget page;
-    if (landscape) {
-      // The camera cut-out takes one side; both sides give way so the clips stay
-      // centred.
-      final pad = MediaQuery.paddingOf(context);
-      final side = math.max(pad.left, pad.right);
-      page = Scaffold(
-        backgroundColor: Colors.black,
-        body: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: _toggleControls,
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: side),
-                  child: picture,
+    final pictureHere = KeyedSubtree(key: _pictureKey, child: picture);
+    // One layout whether the picture is zoomed or not, so nothing moves: zooming only
+    // makes the bars see-through and lets them fade away.
+    final topBar = SizedBox(
+      height: kToolbarHeight,
+      child: Row(
+        children: [
+          const BackButton(color: Colors.white),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  name ?? date,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white, fontSize: 20),
                 ),
-              ),
-              Positioned(
-                left: 0,
-                right: 0,
-                top: 0,
-                child: _overlay(
-                  top: true,
-                  child: Row(
-                    children: [
-                      const BackButton(color: Colors.white),
-                      Expanded(
-                        child: Text(
-                          name == null ? date : l.titleWithName(name, date),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                          ),
-                        ),
-                      ),
-                      const PipButton(color: Colors.white),
-                    ],
+                if (name != null)
+                  Text(
+                    date,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 13, color: Colors.white70),
                   ),
-                ),
-              ),
-              if (main != null)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: _overlay(top: false, child: controls(compact: true)),
-                ),
-            ],
+              ],
+            ),
           ),
-        ),
-      );
-    } else {
-      page = Scaffold(
-        backgroundColor: Colors.black,
-        appBar: AppBar(
-          backgroundColor: Colors.black,
-          foregroundColor: Colors.white,
-          title: name == null
-              ? Text(date)
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                    Text(
-                      date,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Colors.white70,
-                      ),
-                    ),
-                  ],
-                ),
-          actions: const [PipButton(color: Colors.white)],
-        ),
-        body: SafeArea(
-          child: Column(
+          if (main != null)
+            FitButton(
+              color: Colors.white,
+              current: [
+                for (final c in [main, ?rear]) _fits[c] ?? PictureFit.whole,
+              ],
+              onPressed: (fit) {
+                _fitCommand.apply(fit);
+                _touchControls();
+              },
+            ),
+          const PipButton(color: Colors.white),
+          const SizedBox(width: 4),
+        ],
+      ),
+    );
+    final Widget bottomBar = main == null
+        ? const SizedBox.shrink()
+        : landscape
+        ? controls(compact: true)
+        : Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Expanded(child: picture),
-              if (main != null) controls(compact: false),
-              if (bothSaved)
+              controls(compact: false),
+              if (canPick)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
-                  child: _picker(),
+                  child: _picker(views),
                 ),
             ],
+          );
+    final top = _overlay(top: true, child: topBar);
+    final bottom = _overlay(top: false, child: bottomBar);
+
+    final Widget body;
+    if (landscape) {
+      // The clips get the whole screen, the bars float over them. The camera cut-out
+      // takes one side; both sides give way so the clips stay centred.
+      final pad = MediaQuery.paddingOf(context);
+      final side = math.max(pad.left, pad.right);
+      body = Stack(
+        children: [
+          Positioned.fill(
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: side),
+              child: pictureHere,
+            ),
           ),
-        ),
+          Positioned(left: 0, right: 0, top: 0, child: top),
+          Positioned(left: 0, right: 0, bottom: 0, child: bottom),
+        ],
+      );
+    } else {
+      // The clips get the space between the bars; zoomed in, a clip may spread
+      // under them, where it shows through.
+      body = CustomMultiChildLayout(
+        delegate: _BetweenBars(),
+        children: [
+          LayoutId(id: _Slot.picture, child: pictureHere),
+          LayoutId(id: _Slot.top, child: top),
+          LayoutId(id: _Slot.bottom, child: bottom),
+        ],
       );
     }
+    final page = Scaffold(
+      backgroundColor: Colors.black,
+      body: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _toggleControls,
+        child: body,
+      ),
+    );
 
     return PipHost(
       // Like YouTube: only a clip that is playing goes into the window by itself.
@@ -675,9 +851,14 @@ class _Controls extends StatelessWidget {
     required this.pause,
     required this.seek,
     required this.preview,
+    required this.speed,
+    required this.setSpeed,
     this.compact = false,
     this.trailing,
   });
+
+  final double speed;
+  final Future<void> Function(double) setSpeed;
 
   /// The leading clip: its position and length are shown.
   final VideoPlayerController controller;
@@ -751,6 +932,7 @@ class _Controls extends StatelessWidget {
               icon: const Icon(Icons.forward_10),
             ),
           ];
+          final speedButton = _SpeedButton(speed: speed, setSpeed: setSpeed);
           if (compact) {
             return Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -764,7 +946,15 @@ class _Controls extends StatelessWidget {
                       Text(_clock(v.duration), style: timeStyle),
                     ],
                   ),
-                  Row(children: [...buttons, const Spacer(), ?trailing]),
+                  Row(
+                    children: [
+                      ...buttons,
+                      const SizedBox(width: 8),
+                      speedButton,
+                      const Spacer(),
+                      ?trailing,
+                    ],
+                  ),
                 ],
               ),
             );
@@ -784,8 +974,11 @@ class _Controls extends StatelessWidget {
                 ),
               ),
               Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: buttons,
+                children: [
+                  const Spacer(),
+                  ...buttons,
+                  Expanded(child: Center(child: speedButton)),
+                ],
               ),
               const SizedBox(height: 8),
             ],
@@ -796,7 +989,89 @@ class _Controls extends StatelessWidget {
   }
 }
 
+/// Shows the speed ("1×", "0.5×") and offers the others.
+class _SpeedButton extends StatelessWidget {
+  const _SpeedButton({required this.speed, required this.setSpeed});
+  final double speed;
+  final Future<void> Function(double) setSpeed;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    String label(double s) =>
+        l.speedValue(NumberFormat.decimalPattern(l.localeName).format(s));
+    return PopupMenuButton<double>(
+      tooltip: l.playbackSpeed,
+      initialValue: speed,
+      onSelected: setSpeed,
+      itemBuilder: (context) => [
+        for (final s in playerSpeeds)
+          PopupMenuItem(
+            value: s,
+            child: Text(s == 1 ? l.speedNormal : label(s)),
+          ),
+      ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+        child: Text(
+          label(speed),
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// The clip is not (or no longer) in the phone's gallery.
 class _NotSaved implements Exception {
   const _NotSaved();
+}
+
+enum _Slot { picture, top, bottom }
+
+/// Portrait: the bars at the top and bottom, the clips in the space between them. The
+/// clips are painted first, so a zoomed one that spreads past its space shows through
+/// the bars.
+class _BetweenBars extends MultiChildLayoutDelegate {
+  @override
+  void performLayout(Size size) {
+    final bar = BoxConstraints(
+      minWidth: size.width,
+      maxWidth: size.width,
+      maxHeight: size.height,
+    );
+    final top = layoutChild(_Slot.top, bar);
+    final bottom = layoutChild(_Slot.bottom, bar);
+    final height = math.max(0.0, size.height - top.height - bottom.height);
+    layoutChild(_Slot.picture, BoxConstraints.tight(Size(size.width, height)));
+    positionChild(_Slot.top, Offset.zero);
+    positionChild(_Slot.picture, Offset(0, top.height));
+    positionChild(_Slot.bottom, Offset(0, size.height - bottom.height));
+  }
+
+  @override
+  bool shouldRelayout(_BetweenBars oldDelegate) => false;
+}
+
+/// Clips only along one [edge] of the child, leaving the other sides open.
+class _CutAlong extends CustomClipper<Rect> {
+  _CutAlong(this.edge);
+  final AxisDirection edge;
+
+  @override
+  Rect getClip(Size size) {
+    const far = 100000.0;
+    return switch (edge) {
+      AxisDirection.down => Rect.fromLTRB(-far, -far, far, size.height),
+      AxisDirection.up => Rect.fromLTRB(-far, 0, far, far),
+      AxisDirection.right => Rect.fromLTRB(-far, -far, size.width, far),
+      AxisDirection.left => Rect.fromLTRB(0, -far, far, far),
+    };
+  }
+
+  @override
+  bool shouldReclip(_CutAlong oldClipper) => oldClipper.edge != edge;
 }

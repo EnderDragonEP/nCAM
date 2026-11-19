@@ -49,7 +49,6 @@
   "unknownDate": "Unknown date",
   "search": "Search",
   "searchHint": "Search names and dates",
-  "clearSearch": "Clear search",
   "closeSearch": "Close search",
   "fileCount": "{count, plural, =1{1 file} other{{count} files}}",
   "@fileCount": {
@@ -61,18 +60,6 @@
   },
   "settingsTitle": "Settings",
   "diagnosticLog": "Diagnostic log",
-  "titleWithName": "{name} · {date}",
-  "@titleWithName": {
-    "description": "A recording's name and its date.",
-    "placeholders": {
-      "name": {
-        "type": "String"
-      },
-      "date": {
-        "type": "String"
-      }
-    }
-  },
   "dayPattern": "EEE d MMM y",
   "@dayPattern": {
     "description": "Pattern for day headings, e.g. \"Wed 11 Nov 2026\". Uses the letters of the intl package's DateFormat (EEE weekday, d day, MMM month, y year)."
@@ -699,7 +686,7 @@
   "nameMenu": "Name…",
   "renameMenu": "Rename…",
   "deleteFromPhone": "Delete from this phone",
-  "clipNotSaved": "This clip isn't saved on the phone.",
+  "clipNotSaved": "This clip isn't on the phone, and the camera isn't connected to play it from.",
   "clipPlayFailed": "This clip could not be played: {detail}",
   "@clipPlayFailed": {
     "placeholders": {
@@ -708,9 +695,44 @@
       }
     }
   },
-  "zoomOriginal": "Original",
-  "@zoomOriginal": {
-    "description": "Shown briefly after pinching back to the whole picture (as in the YouTube app)."
+  "playbackSpeed": "Playback speed",
+  "speedNormal": "Normal",
+  "@speedNormal": {
+    "description": "The usual speed, 1×."
+  },
+  "speedValue": "{speed}×",
+  "@speedValue": {
+    "description": "A playback speed, e.g. \"1.5×\".",
+    "placeholders": {
+      "speed": {
+        "type": "String"
+      }
+    }
+  },
+  "streamingFromCamera": "Playing from the camera",
+  "playFromCamera": "Play",
+  "liveLimited": "Live view limited: {reasons}",
+  "@liveLimited": {
+    "description": "Over the live picture; {reasons} is one or more of the liveReason texts.",
+    "placeholders": {
+      "reasons": {
+        "type": "String"
+      }
+    }
+  },
+  "liveReasonDownloading": "a clip is downloading",
+  "liveReasonWeakSignal": "weak Wi-Fi ({dbm} dBm)",
+  "@liveReasonWeakSignal": {
+    "placeholders": {
+      "dbm": {
+        "type": "int"
+      }
+    }
+  },
+  "liveReasonSlowLink": "slow connection",
+  "zoomFit": "Best fit",
+  "@zoomFit": {
+    "description": "Shown briefly when the whole picture shows again, as large as it fits."
   },
   "zoomFill": "Zoomed to fill",
   "@zoomFill": {
@@ -724,6 +746,14 @@
         "type": "String"
       }
     }
+  },
+  "zoomToFill": "Zoom to fill",
+  "@zoomToFill": {
+    "description": "Fit button: fill the screen, cutting the edges off."
+  },
+  "zoomToFit": "Best fit",
+  "@zoomToFit": {
+    "description": "Fit button: back to the whole picture, as large as it fits."
   },
   "liveTitle": "Live view",
   "fps": "{fps} fps",

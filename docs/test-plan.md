@@ -159,8 +159,16 @@ Results here were reported as working in general; the individual checks were not
 | H17 | Type in the search box: part of a name; a date such as "17 Nov", "november", "2026-11-17" or "11/17"; a time such as "19:22". | Only matching recordings stay, under their day headings. Something that matches nothing says so; the clear button brings everything back. | |
 | H18 | Delete a named recording from the phone, then download it again. | It comes back without the old name. | |
 | H19 | Connected: Recordings → search icon, then search by a name, a date or a time (as in H17). Then select several → Select all. | Only matching recordings show; Select all picks only those. The ✕ (or Back) closes the search and shows everything again. | |
+| H19b | Saved → the search button (magnifier) → search, then ✕ or Back. | As on Recordings: the box opens with the keyboard and closes again, showing everything. | |
 | H20 | Landscape player: pinch out, then pinch in. Then pinch out further and drag. | "Zoomed to fill" (no side bars, a little cut off top and bottom), then "Original" (whole picture). Further: zooms up to about 4× ("2.5×" etc.) and a drag moves around without going past the edge. A tap still shows or hides the controls. | |
 | H21 | Both, either orientation: pinch one clip. | Only that clip zooms; the other stays as it was. | |
+| H22 | Player → speed button (shows "1×") → try 0.25×, 2× and 4×, with one clip and with Both. | The clip plays at that speed; Both stays in step. The button shows the chosen speed. | |
+| H23 | Portrait player: note where the title, the buttons and the picture are. Pinch to zoom in, tap the picture, wait 3 s, pinch back out. | Nothing moves at any point. As soon as two fingers zoom, the bars fade away and the picture spreads under them; a tap brings the bars back (see-through), and they fade again after about 3 s, even when paused. Back to the whole picture, the bars come back and stay. | |
+| H24 | Android Settings → Accessibility → "Time to take action" set to 1 minute, then repeat H23. With TalkBack on, repeat again. | The controls stay up for a minute; with TalkBack they never hide by themselves. | |
+| H25 | Connected: Recordings → ▶ on a recording you have not downloaded. Seek around; switch Front/Rear. | It plays straight from the camera (a Wi-Fi mark in the corner), with a spinner while it waits for the camera. Both is only offered once one of the two is saved. Note how smooth it is while the camera records. | |
+| H26 | Player (one clip, then Both) and live view: tap the fit button next to the picture-in-picture button a few times; then zoom in by hand and tap it again. | It switches between "Best fit" (the whole picture) and "Zoomed to fill" (no black bars, edges cut off), with a short label each time. Zoomed in by hand, the first tap goes back to Best fit. With Both, both clips follow. | |
+| H27 | Play in portrait, then turn to landscape (one clip and Both); also pause in landscape. | The bars fade after about 3 s, playing or paused, since they lie over the clips; a tap brings them back. | |
+| H28 | Both, portrait and landscape: zoom into the front clip, then the rear one. | The bars fade as soon as you pinch. Each zoomed clip spreads under the bars and off the screen's edges, but never over the other clip. | |
 
 ## I. Settings (new)
 
@@ -216,6 +224,7 @@ These are the ones that decide whether the app can replace the official one.
 | L11 | Press and hold the Record button with your thumb, with it on the right and then on the left (Settings). | The button grows to about twice its size above your thumb while pressed, so the stop icon and the ring stay visible; it stays on the screen and shrinks back when you let go. | |
 | L12 | Hold the Record button and, while the ring fills, roll or slide your thumb around on the enlarged button. Then try again sliding well off it. | Rolling on the big button keeps the hold going and recording stops when the ring is full. Sliding well off calls it off: the button shrinks and recording carries on. | |
 | L13 | Live view: pinch out, pinch in, zoom further and drag, in portrait and in landscape. | As in H20. The live picture keeps updating while zoomed. | |
+| L14 | Live view while a clip downloads; then walk away from the camera until the picture slows. | A small "Live view limited: a clip is downloading" note, then "weak Wi-Fi (… dBm)" or "slow connection". It goes away when things are normal again. | |
 
 ## M. Appearance (added 2026-11-13)
 
