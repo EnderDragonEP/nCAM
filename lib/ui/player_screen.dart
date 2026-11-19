@@ -15,6 +15,7 @@ import '../state/downloads.dart';
 import '../state/pip.dart';
 import '../state/session.dart';
 import 'format.dart';
+import 'zoomable_view.dart';
 
 enum PlayerView { front, rear, both }
 
@@ -362,37 +363,55 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
   // ---- Layout ------------------------------------------------------------------------
 
-  static Widget _video(VideoPlayerController c, {String? label}) {
-    return Center(
-      child: AspectRatio(
-        aspectRatio: c.value.aspectRatio,
-        child: Stack(
-          children: [
-            Positioned.fill(child: VideoPlayer(c)),
-            if (label != null)
-              Positioned(
-                left: 8,
-                top: 8,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: Colors.black54,
-                    borderRadius: BorderRadius.circular(6),
+  /// One clip. On the page it can be pinched to fill the space or zoomed (each clip on
+  /// its own when both are shown); the floating window shows it whole.
+  static Widget _video(
+    VideoPlayerController c, {
+    String? label,
+    bool zoom = true,
+  }) {
+    final picture = VideoPlayer(c);
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: zoom
+              ? ZoomableView(
+                  // A new clip starts whole again.
+                  key: ObjectKey(c),
+                  aspectRatio: c.value.aspectRatio,
+                  child: picture,
+                )
+              : Center(
+                  child: AspectRatio(
+                    aspectRatio: c.value.aspectRatio,
+                    child: picture,
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
-                    ),
-                    child: Text(
-                      label,
-                      style: const TextStyle(color: Colors.white, fontSize: 12),
-                    ),
+                ),
+        ),
+        if (label != null)
+          Positioned(
+            left: 8,
+            top: 8,
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  child: Text(
+                    label,
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
                   ),
                 ),
               ),
-          ],
-        ),
-      ),
+            ),
+          ),
+      ],
     );
   }
 
@@ -403,13 +422,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     VideoPlayerController rear, {
     bool labels = true,
     bool? sideBySide,
+    bool zoom = true,
   }) {
     return LayoutBuilder(
       builder: (context, box) {
         final wide = sideBySide ?? box.maxWidth > box.maxHeight;
         final l = context.l10n;
-        final a = _video(front, label: labels ? l.front : null);
-        final b = _video(rear, label: labels ? l.rear : null);
+        final a = _video(front, label: labels ? l.front : null, zoom: zoom);
+        final b = _video(rear, label: labels ? l.rear : null, zoom: zoom);
         return wide
             ? Row(
                 children: [
@@ -639,8 +659,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         child: main == null
             ? const SizedBox.expand()
             : rear != null
-            ? _pair(main, rear, labels: false, sideBySide: true)
-            : _video(main),
+            ? _pair(main, rear, labels: false, sideBySide: true, zoom: false)
+            : _video(main, zoom: false),
       ),
       child: page,
     );

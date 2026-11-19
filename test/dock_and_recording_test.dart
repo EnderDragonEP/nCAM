@@ -285,6 +285,53 @@ void main() {
       expect(commands('cmd=2001'), 0);
     });
 
+    testWidgets('the whole enlarged button counts while it is held', (
+      tester,
+    ) async {
+      await open(tester);
+      final atRest = tester.getRect(find.byType(RecordButton));
+      final gesture = await tester.startGesture(atRest.center);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      final big = tester.getRect(
+        find.byKey(const ValueKey('record-button-enlarged')),
+      );
+
+      // The thumb slides well off the small button but stays on the big one.
+      await gesture.moveTo(big.center + Offset(-big.width * 0.3, 0));
+      await tester.pump(const Duration(milliseconds: 300));
+      await gesture.moveTo(big.topCenter + const Offset(0, 12));
+      await tester.pump(holdToStop);
+      await tester.pumpAndSettle();
+      expect(commands('cmd=2001&par=0'), 1);
+      expect(find.text('Recording stopped.'), findsOneWidget);
+      await gesture.up();
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('sliding off the enlarged button calls the hold off', (
+      tester,
+    ) async {
+      await open(tester);
+      final atRest = tester.getRect(find.byType(RecordButton));
+      final gesture = await tester.startGesture(atRest.center);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await gesture.moveTo(atRest.center - const Offset(0, 220));
+      await tester.pump(holdToStop * 2);
+      await tester.pumpAndSettle();
+      expect(commands('cmd=2001'), 0);
+      expect(
+        find.byKey(const ValueKey('record-button-enlarged')),
+        findsNothing,
+      );
+      // Letting go afterwards does nothing either.
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(commands('cmd=2001'), 0);
+      expect(find.text('Hold the button to stop recording.'), findsNothing);
+    });
+
     testWidgets('a tap starts recording when stopped', (tester) async {
       camera.recordingSeconds = 0;
       for (final f in camera.files) {

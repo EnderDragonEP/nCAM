@@ -85,8 +85,8 @@ Tests to run on the real phone (Galaxy S24 Ultra, Android 17) and the real camer
 | D14 | Deny the notification permission when first asked, then download. | Downloads still work; there is just no progress notification. | |
 | D15 | During a download, take a phone call or switch to another app for five minutes. | Download continues. | |
 | D16 | Fill the phone until less than 1 GB is free, then download a large clip. | Fails with a readable message. No crash, and no half-file appears in the gallery. | |
-| D17 | Camera recording, fresh start of the app: open Recordings, then Refresh. | The list shows (read from the camera's folder page), with the clip being recorded marked "Recording now". Downloading a finished clip works and the camera keeps recording. Save the log afterwards either way. | |
-| D18 | Only if D17 shows no list: tap "Pause recording to read the list", confirm. | The camera stops for a few seconds, the list shows, "the camera is recording again", and the home page shows it recording. The clip that was being recorded can now be downloaded. | |
+| D17 | Camera recording, fresh start of the app: open Recordings, then Refresh. | The list shows (read from the camera's folder page), with the clip being recorded marked "Recording now". Downloading a finished clip works and the camera keeps recording. Save the log afterwards either way. | Pass (reported 11-19; live view also ran during the download, slightly stuttery) |
+| D18 | Only if D17 shows no list: tap "Pause recording to read the list", confirm. | The camera stops for a few seconds, the list shows, "the camera is recording again", and the home page shows it recording. The clip that was being recorded can now be downloaded. | Not needed: D17 passed |
 
 ## E. Fast download — **parked**
 
@@ -159,6 +159,8 @@ Results here were reported as working in general; the individual checks were not
 | H17 | Type in the search box: part of a name; a date such as "17 Nov", "november", "2026-11-17" or "11/17"; a time such as "19:22". | Only matching recordings stay, under their day headings. Something that matches nothing says so; the clear button brings everything back. | |
 | H18 | Delete a named recording from the phone, then download it again. | It comes back without the old name. | |
 | H19 | Connected: Recordings → search icon, then search by a name, a date or a time (as in H17). Then select several → Select all. | Only matching recordings show; Select all picks only those. The ✕ (or Back) closes the search and shows everything again. | |
+| H20 | Landscape player: pinch out, then pinch in. Then pinch out further and drag. | "Zoomed to fill" (no side bars, a little cut off top and bottom), then "Original" (whole picture). Further: zooms up to about 4× ("2.5×" etc.) and a drag moves around without going past the edge. A tap still shows or hides the controls. | |
+| H21 | Both, either orientation: pinch one clip. | Only that clip zooms; the other stays as it was. | |
 
 ## I. Settings (new)
 
@@ -212,6 +214,8 @@ These are the ones that decide whether the app can replace the official one.
 | L9 | Diagnostic log → download icon. | "Saved to Downloads as nCam-….log"; the file is in the phone's Downloads folder and opens in a text viewer. No permission prompt. | |
 | L10 | Turn on the largest font size; look at the dock and home page. | Nothing cut off or overlapping. | |
 | L11 | Press and hold the Record button with your thumb, with it on the right and then on the left (Settings). | The button grows to about twice its size above your thumb while pressed, so the stop icon and the ring stay visible; it stays on the screen and shrinks back when you let go. | |
+| L12 | Hold the Record button and, while the ring fills, roll or slide your thumb around on the enlarged button. Then try again sliding well off it. | Rolling on the big button keeps the hold going and recording stops when the ring is full. Sliding well off calls it off: the button shrinks and recording carries on. | |
+| L13 | Live view: pinch out, pinch in, zoom further and drag, in portrait and in landscape. | As in H20. The live picture keeps updating while zoomed. | |
 
 ## M. Appearance (added 2026-11-13)
 

@@ -1,9 +1,12 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/l10n.dart';
 import '../state/live.dart';
 import '../state/pip.dart';
+import 'zoomable_view.dart';
 
 class LiveScreen extends ConsumerWidget {
   const LiveScreen({super.key, this.onBack});
@@ -52,12 +55,17 @@ class LiveScreen extends ConsumerWidget {
                   fit: StackFit.expand,
                   children: [
                     if (frame != null)
-                      Image.memory(
-                        frame,
-                        fit: BoxFit.contain,
-                        // Keep showing the previous picture until the next one is decoded.
-                        gaplessPlayback: true,
-                        errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                      // Pinch to fill the screen or zoom in, as in the player.
+                      ZoomableView(
+                        aspectRatio: _aspectOf(frame),
+                        child: Image.memory(
+                          frame,
+                          fit: BoxFit.fill,
+                          // Keep showing the previous picture until the next one is
+                          // decoded.
+                          gaplessPlayback: true,
+                          errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                        ),
                       ),
                     if (live.status == LiveStatus.connecting)
                       Center(
@@ -181,4 +189,10 @@ class _LivePip extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The live picture's shape, read from the JPEG itself; 16:9 until one has arrived.
+double _aspectOf(Uint8List frame) {
+  final size = jpegSize(frame);
+  return size == null ? 16 / 9 : size.width / size.height;
 }

@@ -41,11 +41,12 @@ Measured with `tools/camtest.py` from the phone, **while the camera was recordin
 
 | Item | Result |
 |---|---|
-| File list (3015) refused | Answers `<Function><Cmd>3015</Cmd><Status>-3</Status></Function>` instead of a list. Seen on a freshly formatted card while recording, and on 11-12 while recording with files on the card. From 11-16 to 11-18 **every** listing during recording was refused; each time recording stopped (`2001 par=0`, 2016 → 0) the list came back within seconds (e.g. 11-18 18:32:28 stop, 18:32:33 list). On 11-11 the list worked during recording, so why it started is unknown. The app now falls back to the HTML folder page (`/Novatek/Movie/`, sizes rounded to 0.01 MB), and if that fails too offers to pause recording for a few seconds to read the list. Whether the folder page is served while 3015 is refused is not yet confirmed. |
+| File list (3015) refused | Answers `<Function><Cmd>3015</Cmd><Status>-3</Status></Function>` instead of a list. Seen on a freshly formatted card while recording, and on 11-12 while recording with files on the card. From 11-16 to 11-18 **every** listing during recording was refused; each time recording stopped (`2001 par=0`, 2016 → 0) the list came back within seconds (e.g. 11-18 18:32:28 stop, 18:32:33 list). On 11-11 the list worked during recording, so why it started is unknown. The app now falls back to the HTML folder page (`/Novatek/Movie/`, sizes rounded to 0.01 MB), and if that fails too offers to pause recording for a few seconds to read the list. **Confirmed 11-19:** the folder page is served while 3015 is refused, so the list shows during recording. |
 | Card status (3024) | `1` on 11-13, `33` on 11-11. Meaning of the values unknown. |
 | Link loss during live view | Android reported the camera link lost twice in 14 minutes with live view open. Android did not rejoin by itself for over a minute; Disconnect + Connect fixed it. |
 | View index (3028) | `0` = front, `1` = rear, `2` = both side by side. |
 | Clip rollover | 2016 resets every 10 minutes (loop length 2003 = 3). |
+| Recording + download + live view | All three at once work (11-19): the camera keeps recording, files download, and live view plays, though the live picture stutters a little while a download runs (they share the ~1.3 MB/s link). |
 
 Not yet run: T9 (idle timeout), thumbnails with recording stopped, and whether stopping recording alone (`2001 par=0`, without playback mode) gives the same speed-up.
 

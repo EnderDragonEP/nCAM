@@ -275,6 +275,45 @@ void main() {
     expect(modes.last, 'SystemUiMode.edgeToEdge');
   });
 
+  testWidgets(
+    'a pinch fills the screen with the clip, another shows it whole',
+    (tester) async {
+      await open(tester, size: landscape);
+      const screen = Size(2340 / dpr, 1080 / dpr);
+      final centre = screen.center(Offset.zero);
+      Future<void> pinch(double from, double to) async {
+        final a = await tester.startGesture(centre - Offset(from / 2, 0));
+        final b = await tester.startGesture(centre + Offset(from / 2, 0));
+        for (var i = 1; i <= 5; i++) {
+          final d = from + (to - from) * i / 5;
+          await a.moveTo(centre - Offset(d / 2, 0));
+          await b.moveTo(centre + Offset(d / 2, 0));
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+        await a.up();
+        await b.up();
+        await tester.pumpAndSettle();
+      }
+
+      expect(
+        tester.getRect(find.byType(VideoPlayer)).width,
+        lessThan(screen.width - 100),
+      );
+      await pinch(100, 130);
+      expect(
+        tester.getRect(find.byType(VideoPlayer)).width,
+        closeTo(screen.width, 1),
+      );
+      expect(find.text('Zoomed to fill'), findsOneWidget);
+      await pinch(200, 150);
+      expect(
+        tester.getRect(find.byType(VideoPlayer)).height,
+        closeTo(screen.height, 1),
+      );
+      await close(tester);
+    },
+  );
+
   testWidgets('landscape controls hide while playing and come back on a tap', (
     tester,
   ) async {

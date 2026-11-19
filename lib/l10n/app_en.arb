@@ -708,6 +708,23 @@
       }
     }
   },
+  "zoomOriginal": "Original",
+  "@zoomOriginal": {
+    "description": "Shown briefly after pinching back to the whole picture (as in the YouTube app)."
+  },
+  "zoomFill": "Zoomed to fill",
+  "@zoomFill": {
+    "description": "Shown briefly after pinching out so the picture fills the screen."
+  },
+  "zoomFactor": "{factor}×",
+  "@zoomFactor": {
+    "description": "Shown briefly while zoomed in, e.g. \"2.5×\".",
+    "placeholders": {
+      "factor": {
+        "type": "String"
+      }
+    }
+  },
   "liveTitle": "Live view",
   "fps": "{fps} fps",
   "@fps": {

@@ -756,6 +756,17 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get zoomOriginal => 'Original';
+
+  @override
+  String get zoomFill => 'Zoomed to fill';
+
+  @override
+  String zoomFactor(String factor) {
+    return '$factor×';
+  }
+
+  @override
   String get liveTitle => 'Live view';
 
   @override

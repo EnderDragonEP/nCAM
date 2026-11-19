@@ -1216,6 +1216,24 @@ abstract class AppLocalizations {
   /// **'This clip could not be played: {detail}'**
   String clipPlayFailed(String detail);
 
+  /// Shown briefly after pinching back to the whole picture (as in the YouTube app).
+  ///
+  /// In en, this message translates to:
+  /// **'Original'**
+  String get zoomOriginal;
+
+  /// Shown briefly after pinching out so the picture fills the screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Zoomed to fill'**
+  String get zoomFill;
+
+  /// Shown briefly while zoomed in, e.g. "2.5×".
+  ///
+  /// In en, this message translates to:
+  /// **'{factor}×'**
+  String zoomFactor(String factor);
+
   /// No description provided for @liveTitle.
   ///
   /// In en, this message translates to:

@@ -14,6 +14,10 @@ const holdToStop = Duration(milliseconds: 1500);
 /// the hold ring show around the thumb instead of under it.
 const pressedScale = 2.3;
 
+/// While held, the finger may stray this far past the enlarged button's edge (a thumb
+/// rolls) before the press is called off.
+const pressedSlack = 24.0;
+
 /// Big round record button for the dock.
 ///
 /// Not recording: a tap starts recording. Recording: a tap only explains; the button has
@@ -119,6 +123,56 @@ class _RecordButtonState extends ConsumerState<RecordButton>
   }
 
   void _shrink() => _grow.reverse();
+
+  /// The finger on the button, while there is one.
+  int? _pointer;
+
+  /// Whether [global] is on the enlarged button. A press may start only on the button
+  /// itself, but once it has grown the whole bigger circle counts, so a thumb that
+  /// slides a little does not call off the hold.
+  bool _onEnlarged(Offset global) {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return true;
+    final bottom = box.localToGlobal(box.size.bottomCenter(Offset.zero));
+    final radius = widget.size * pressedScale / 2;
+    final centre = Offset(bottom.dx + _shift, bottom.dy - radius);
+    return (global - centre).distance <= radius + pressedSlack;
+  }
+
+  void _press(bool recording) {
+    _pressWhileRecording = recording;
+    _enlarge();
+    if (recording) {
+      HapticFeedback.selectionClick();
+      _hold.forward(from: 0);
+    }
+  }
+
+  void _release() {
+    _shrink();
+    final wasRecording = _pressWhileRecording;
+    _pressWhileRecording = null;
+    if (wasRecording == null || !mounted) return;
+    if (wasRecording) {
+      // Let go before the ring filled: explain, do not stop.
+      _hold.reverse();
+      HapticFeedback.lightImpact();
+      _say(context.l10n.holdToStop);
+    } else {
+      HapticFeedback.mediumImpact();
+      _run(
+        ref.read(sessionProvider.notifier).startRecording,
+        (l) => l.recordingStarted,
+      );
+    }
+  }
+
+  void _callOff() {
+    _pointer = null;
+    _shrink();
+    if (_pressWhileRecording == true) _hold.reverse();
+    _pressWhileRecording = null;
+  }
 
   Widget _face({
     required bool available,
@@ -273,40 +327,42 @@ class _RecordButtonState extends ConsumerState<RecordButton>
           button: true,
           enabled: enabled,
           label: label,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTapDown: !enabled
-                ? null
-                : (_) {
-                    _pressWhileRecording = recording;
-                    _enlarge();
-                    if (recording) {
-                      HapticFeedback.selectionClick();
-                      _hold.forward(from: 0);
-                    }
-                  },
-            onTapUp: (_) {
-              _shrink();
-              final wasRecording = _pressWhileRecording;
-              _pressWhileRecording = null;
-              if (wasRecording == null || !mounted) return;
-              if (wasRecording) {
-                // Let go before the ring filled: explain, do not stop.
-                _hold.reverse();
-                HapticFeedback.lightImpact();
-                _say(l.holdToStop);
-              } else {
-                HapticFeedback.mediumImpact();
-                _run(
+          // Screen readers: a double tap starts recording (or explains); a double tap
+          // and hold stops it.
+          onTap: !enabled
+              ? null
+              : recording
+              ? () => _say(l.holdToStop)
+              : () => _run(
                   ref.read(sessionProvider.notifier).startRecording,
                   (l) => l.recordingStarted,
-                );
-              }
+                ),
+          onLongPress: enabled && recording
+              ? () => _run(
+                  ref.read(sessionProvider.notifier).stopRecording,
+                  (l) => l.recordingStopped,
+                )
+              : null,
+          // Raw pointer events rather than a tap: a tap is called off as soon as the
+          // finger moves a little, but a held press should last while the finger stays
+          // on the enlarged button.
+          child: Listener(
+            behavior: HitTestBehavior.opaque,
+            onPointerDown: (e) {
+              if (!enabled || _pointer != null) return;
+              _pointer = e.pointer;
+              _press(recording);
             },
-            onTapCancel: () {
-              _shrink();
-              if (_pressWhileRecording == true) _hold.reverse();
-              _pressWhileRecording = null;
+            onPointerMove: (e) {
+              if (e.pointer == _pointer && !_onEnlarged(e.position)) _callOff();
+            },
+            onPointerUp: (e) {
+              if (e.pointer != _pointer) return;
+              _pointer = null;
+              _release();
+            },
+            onPointerCancel: (e) {
+              if (e.pointer == _pointer) _callOff();
             },
             // Hidden while the enlarged copy is up, so only one button shows.
             child: Opacity(opacity: _portal.isShowing ? 0 : 1, child: face),
