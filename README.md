@@ -38,8 +38,6 @@ Install it by copying the file to the phone and opening it, or over USB with deb
 adb install -r build/app/outputs/flutter-apk/app-release.apk
 ```
 
-Prototype builds are also kept, with a timestamp in the name, in `M:\nCam-prototypes\nCam-<yyyyMMdd-HHmmss>.apk` on the development PC.
-
 ## Translations
 
 All the text the app shows is in [lib/l10n/app_en.arb](lib/l10n/app_en.arb), in English. The code reads it through `context.l10n` (screens) or hands over a `Msg` (state code), so no sentence is written into the code itself. The app follows the phone's language and falls back to English.
