@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../camera/models.dart';
 import '../l10n/l10n.dart';
 import '../state/auto_connect.dart';
+import '../state/camera_watch.dart';
 import '../state/dock_side.dart';
 import '../state/pip.dart';
 import '../state/session.dart';
@@ -25,6 +26,23 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   /// What is in progress, shown in place of the list's progress bar. Null when idle.
   String? _working;
+
+  late final AppLifecycleListener _lifecycle;
+
+  @override
+  void initState() {
+    super.initState();
+    // Back from Android's settings: the battery choice may have changed.
+    _lifecycle = AppLifecycleListener(
+      onResume: () => ref.invalidate(batteryUnrestrictedProvider),
+    );
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
+  }
 
   Future<void> _run(String label, Future<Msg?> Function() action) async {
     if (_working != null) return;
@@ -243,6 +261,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ref.read(recordButtonSideProvider.notifier).set(s.first),
             ),
           ),
+          ..._watchTiles(header),
           if (!connected) ...[
             header(l.sectionCamera),
             ListTile(
@@ -333,6 +352,56 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ],
       ),
     );
+  }
+
+  /// The background clock sync. Needs a saved camera, not a connection.
+  List<Widget> _watchTiles(Widget Function(String) header) {
+    final l = context.l10n;
+    final watch = ref.watch(cameraWatchProvider);
+    final controller = ref.read(cameraWatchProvider.notifier);
+    final saved = ref.watch(sessionProvider.select((s) => s.saved));
+    final platform = ref.read(watchPlatformProvider);
+    final unrestricted = ref.watch(batteryUnrestrictedProvider).value ?? false;
+    return [
+      header(l.sectionBackground),
+      SwitchListTile(
+        secondary: const Icon(Icons.more_time),
+        title: Text(l.watchTitle),
+        subtitle: Text(saved == null ? l.watchNeedsCamera : l.watchHint),
+        value: watch.enabled,
+        onChanged: saved == null && !watch.enabled
+            ? null
+            : controller.setEnabled,
+      ),
+      if (watch.enabled) ...[
+        SwitchListTile(
+          secondary: const Icon(Icons.content_cut),
+          title: Text(l.watchNewClip),
+          subtitle: Text(l.watchNewClipHint),
+          value: watch.newClip,
+          onChanged: controller.setNewClip,
+        ),
+        ListTile(
+          leading: Icon(
+            unrestricted ? Icons.battery_full : Icons.battery_alert_outlined,
+          ),
+          title: Text(l.watchBattery),
+          subtitle: Text(unrestricted ? l.watchBatteryOk : l.watchBatteryHint),
+          onTap: unrestricted
+              ? null
+              : () async {
+                  await platform.askUnrestricted();
+                  ref.invalidate(batteryUnrestrictedProvider);
+                },
+        ),
+        ListTile(
+          leading: const Icon(Icons.notifications_off_outlined),
+          title: Text(l.watchHideNotification),
+          subtitle: Text(l.watchHideNotificationHint),
+          onTap: platform.openNotificationSettings,
+        ),
+      ],
+    ];
   }
 
   Widget _settingTile(CameraSetting s, bool busy) {

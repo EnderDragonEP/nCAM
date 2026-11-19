@@ -9,6 +9,7 @@ class MainActivity : FlutterActivity() {
     private var bridge: CameraBridge? = null
     private var downloads: DownloadBridge? = null
     private var pip: PipBridge? = null
+    private var watch: WatchBridge? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -17,6 +18,7 @@ class MainActivity : FlutterActivity() {
         bridge = CameraBridge(this, flutterEngine.dartExecutor.binaryMessenger)
         downloads = DownloadBridge(this, flutterEngine.dartExecutor.binaryMessenger)
         pip = PipBridge(this, flutterEngine.dartExecutor.binaryMessenger)
+        watch = WatchBridge(this, flutterEngine.dartExecutor.binaryMessenger)
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
@@ -26,6 +28,8 @@ class MainActivity : FlutterActivity() {
         downloads = null
         pip?.dispose()
         pip = null
+        watch?.dispose()
+        watch = null
         super.cleanUpFlutterEngine(flutterEngine)
     }
 

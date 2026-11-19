@@ -227,6 +227,22 @@ These are the ones that decide whether the app can replace the official one.
 | M4 | Settings → Appearance → Light, Dark, Pure black, Follow system. | Pure black has true black backgrounds with faintly lifted cards and dock; Follow system tracks the phone's dark mode. | |
 | M5 | Camera off: open Settings from the dock. | Colours and Appearance work; the camera part says "Not connected". | |
 
+## N. Background clock sync (added 2026-11-19)
+
+The camera forgets the time whenever it loses power, and names its clips with the wrong date until something sets it.
+
+| ID | Do | Expect | Result |
+|---|---|---|---|
+| N1 | Settings → "Keep the camera's clock right" on. Close nCAM (swipe it away). | A quiet "Keeping the camera's clock right" notification stays, folded at the bottom of the shade, no icon in the status bar. | |
+| N2 | Start the car with the phone in your pocket, screen off. After two minutes, open Recordings. | Within about a minute of the camera starting, the notification says "Clock set at hh:mm · new clip started". The clip list shows a clip of a few seconds with a wrong date, then clips with today's date and time. | |
+| N3 | Same as N2 with "Start a new clip after fixing the clock" off. | "Clock set at hh:mm". The first clip of the drive keeps its wrong date; the next one (after up to 10 minutes) is right. | |
+| N4 | Stop at a petrol station for 5 minutes (camera off), drive on. | The clock is set again shortly after the camera restarts. | |
+| N5 | Leave the car overnight, check Android's battery usage for nCAM in the morning. | Close to nothing while the camera was away. Note the figure here. | |
+| N6 | Settings → "Run without battery limits" → allow. | The line changes to "Allowed". | |
+| N7 | Settings → "Hide the notification" → switch the notification off. Repeat N2. | No notification; the clock is still set. | |
+| N8 | Restart the phone, then repeat N2 without opening nCAM. | The clock sync starts again by itself after the restart. | |
+| N9 | With the clock sync on, tap Disconnect on the home page. | The notification says "Paused: disconnected in the app"; Connect resumes it. | |
+
 ## K. Acceptance: the four original problems
 
 Fill this in last. Each line passes only if every listed test passed.

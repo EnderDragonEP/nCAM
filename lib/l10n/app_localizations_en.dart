@@ -934,6 +934,43 @@ class AppLocalizationsEn extends AppLocalizations {
   String get autoPipHint => 'Float video when you leave the app.';
 
   @override
+  String get sectionBackground => 'In the background';
+
+  @override
+  String get watchTitle => 'Keep the camera\'s clock right';
+
+  @override
+  String get watchHint =>
+      'Joins the camera whenever it starts and sets its clock, even with nCAM closed.';
+
+  @override
+  String get watchNeedsCamera => 'Connect to the camera once first.';
+
+  @override
+  String get watchNewClip => 'Start a new clip after fixing the clock';
+
+  @override
+  String get watchNewClipHint =>
+      'Cuts short the clip the camera began with the wrong time. Recording pauses for about 2 seconds.';
+
+  @override
+  String get watchBattery => 'Run without battery limits';
+
+  @override
+  String get watchBatteryOk => 'Allowed: Android won\'t stop the clock sync.';
+
+  @override
+  String get watchBatteryHint =>
+      'Without this, Samsung may stop the clock sync.';
+
+  @override
+  String get watchHideNotification => 'Hide the notification';
+
+  @override
+  String get watchHideNotificationHint =>
+      'Switch it off on the next screen; the clock sync keeps working.';
+
+  @override
   String get recordButton => 'Record button';
 
   @override

@@ -1,0 +1,127 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:ncam/camera/fake_transport.dart';
+import 'package:ncam/downloads/fake_downloader.dart';
+import 'package:ncam/state/camera_watch.dart';
+import 'package:ncam/state/credentials.dart';
+import 'package:ncam/state/downloads.dart';
+import 'package:ncam/state/session.dart';
+import 'package:ncam/ui/settings_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+void main() {
+  late FakeWatchPlatform watch;
+  late MemoryCredentialStore store;
+
+  Future<ProviderContainer> open(WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1080, 6000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          transportProvider.overrideWithValue(FakeCameraTransport()),
+          downloaderProvider.overrideWithValue(FakeDownloader()),
+          credentialStoreProvider.overrideWithValue(store),
+          watchPlatformProvider.overrideWithValue(watch),
+          cameraRetryDelayProvider.overrideWithValue(Duration.zero),
+          clockProbeDelayProvider.overrideWithValue(Duration.zero),
+        ],
+        child: const MaterialApp(home: SettingsScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    return ProviderScope.containerOf(
+      tester.element(find.byType(SettingsScreen)),
+    );
+  }
+
+  Finder tile(String title) => find.widgetWithText(SwitchListTile, title);
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+    watch = FakeWatchPlatform();
+    store = MemoryCredentialStore(const CameraCredentials('NoodleCam', 'x'));
+  });
+
+  testWidgets('off by default; turning it on starts it for the saved camera', (
+    tester,
+  ) async {
+    await open(tester);
+    expect(
+      tester
+          .widget<SwitchListTile>(tile("Keep the camera's clock right"))
+          .value,
+      isFalse,
+    );
+    expect(watch.running, isFalse);
+    // The extra choices only show while it is on.
+    expect(find.text('Hide the notification'), findsNothing);
+
+    await tester.tap(tile("Keep the camera's clock right"));
+    await tester.pumpAndSettle();
+    expect(watch.running, isTrue);
+    expect(watch.ssid, 'NoodleCam');
+    expect(watch.newClip, isTrue);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getBool('camera_watch'), isTrue);
+
+    // Cutting the misnamed clip short can be turned off.
+    await tester.tap(tile('Start a new clip after fixing the clock'));
+    await tester.pumpAndSettle();
+    expect(watch.newClip, isFalse);
+    expect(prefs.getBool('camera_watch_new_clip'), isFalse);
+
+    await tester.tap(tile("Keep the camera's clock right"));
+    await tester.pumpAndSettle();
+    expect(watch.running, isFalse);
+  });
+
+  testWidgets('the notification and battery shortcuts open Android settings', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({'camera_watch': true});
+    await open(tester);
+    expect(watch.running, isTrue); // started again with the app
+    expect(
+      find.text('Without this, Samsung may stop the clock sync.'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Run without battery limits'));
+    await tester.pumpAndSettle();
+    expect(watch.calls, contains('askUnrestricted'));
+    expect(
+      find.text("Allowed: Android won't stop the clock sync."),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Hide the notification'));
+    await tester.pumpAndSettle();
+    expect(watch.calls, contains('openNotificationSettings'));
+  });
+
+  testWidgets('needs a saved camera, and stops when it is forgotten', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({'camera_watch': true});
+    final c = await open(tester);
+    expect(watch.running, isTrue);
+    await c.read(sessionProvider.notifier).forget();
+    await tester.pumpAndSettle();
+    expect(watch.running, isFalse);
+    expect(find.text('Connect to the camera once first.'), findsOneWidget);
+  });
+
+  testWidgets('cannot be turned on without a saved camera', (tester) async {
+    store = MemoryCredentialStore();
+    await open(tester);
+    expect(
+      tester
+          .widget<SwitchListTile>(tile("Keep the camera's clock right"))
+          .onChanged,
+      isNull,
+    );
+  });
+}

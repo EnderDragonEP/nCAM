@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/l10n.dart';
+import '../state/camera_watch.dart';
 import '../state/dock_side.dart';
 import '../state/pip.dart';
 import '../state/session.dart';
@@ -63,6 +64,8 @@ class _AppShellState extends ConsumerState<AppShell> {
   Widget build(BuildContext context) {
     final tab = ref.watch(shellTabProvider);
     void home() => ref.read(shellTabProvider.notifier).show(null);
+    // Keeps the background clock sync in step with the saved camera from the start.
+    ref.listen(cameraWatchProvider, (_, _) {});
 
     final page = switch (tab) {
       null => const HomeScreen(),

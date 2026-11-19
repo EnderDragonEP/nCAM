@@ -13,4 +13,17 @@
     <string name="pip_pause">Pause</string>
     <string name="pip_back">Back 10 seconds</string>
     <string name="pip_forward">Forward 10 seconds</string>
+    <!-- Background clock sync. %1$s: the camera's Wi-Fi name, or a time (HH:mm). -->
+    <string name="channel_watch">Background clock sync</string>
+    <string name="channel_alerts">Camera alerts</string>
+    <string name="watch_title">Keeping the camera\'s clock right</string>
+    <string name="watch_waiting">Waiting for %1$s</string>
+    <string name="watch_setting_clock">Setting %1$s\'s clock…</string>
+    <string name="watch_synced">Clock set at %1$s</string>
+    <string name="watch_synced_new_clip">Clock set at %1$s · new clip started</string>
+    <string name="watch_failed">Could not set the clock: %1$s</string>
+    <string name="watch_paused">Paused: disconnected in the app</string>
+    <string name="alert_not_recording">The camera is NOT recording</string>
+    <string name="alert_not_recording_text">It did not start again after the clock was set.</string>
+    <string name="alert_start_recording">Start recording</string>
 </resources>

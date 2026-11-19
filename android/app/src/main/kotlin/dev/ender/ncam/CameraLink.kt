@@ -59,6 +59,16 @@ object CameraLink {
     private var wanted = false
     private var rejoinAttempt = 0
 
+    /** Whether a link is wanted: false after [disconnect] (the user's Disconnect). */
+    val isWanted: Boolean get() = wanted
+
+    /**
+     * Set while the background clock sync is on: a first join that finds no camera
+     * goes on waiting for it, instead of giving up.
+     */
+    @Volatile
+    var keepWaiting = false
+
     // Answers the app's pending connect call; disconnect() uses it to say "cancelled".
     private var pendingReport: ((String?) -> Unit)? = null
 
@@ -110,6 +120,15 @@ object CameraLink {
         timeoutMs: Int,
         onResult: (String?) -> Unit,
     ) {
+        // Already joined with these details (the background clock sync did it): keep
+        // the link instead of dropping and asking again.
+        if (state == STATE_CONNECTED && network != null && this.ssid == ssid &&
+            this.password == password
+        ) {
+            wanted = true
+            onResult(null)
+            return
+        }
         stopWatching()
         appContext = context.applicationContext
         this.ssid = ssid
@@ -174,6 +193,11 @@ object CameraLink {
                 network = null
                 if (rejoining && wanted) {
                     rejoinFailed("no answer from the camera")
+                } else if (keepWaiting && wanted) {
+                    // Not here yet: wait for it, as for a lost link.
+                    report("unavailable")
+                    setState(STATE_LOST)
+                    startWatching()
                 } else {
                     setState(STATE_DISCONNECTED)
                     report("unavailable")
@@ -189,6 +213,10 @@ object CameraLink {
             DiagLog.add("link: request failed: ${e.message}")
             if (rejoining && wanted) {
                 rejoinFailed("request failed")
+            } else if (keepWaiting && wanted) {
+                report("error:${e.message}")
+                setState(STATE_LOST)
+                startWatching()
             } else {
                 setState(STATE_DISCONNECTED)
                 report("error:${e.message}")
@@ -341,17 +369,54 @@ object CameraLink {
     }
 
     /**
+     * Waits for the camera without asking to join yet: joins as soon as its Wi-Fi shows
+     * up, as for a lost link. For the background clock sync.
+     */
+    fun waitFor(context: Context, ssid: String, password: String) {
+        if (state == STATE_CONNECTED && this.ssid == ssid) {
+            wanted = true
+            return
+        }
+        // The app is joining right now; if that finds no camera, [keepWaiting] turns
+        // it into waiting. Starting over here would cut the app's request off.
+        if (state == STATE_CONNECTING) {
+            wanted = true
+            return
+        }
+        if (wanted && state == STATE_LOST && this.ssid == ssid) return
+        appContext = context.applicationContext
+        this.ssid = ssid
+        this.password = password
+        wanted = true
+        rejoinAttempt = 0
+        setState(STATE_LOST)
+        startWatching()
+    }
+
+    /**
      * The app came back on screen. A lost link gets a fresh start: Android is more willing
      * to join for an app in front of the user, and an old request may be stuck.
      */
-    fun onAppResumed() {
+    fun onAppResumed() = nudge("app back on screen")
+
+    /**
+     * Looks for the camera now. [why] is logged; a quiet nudge (a timer that wakes the
+     * phone now and then) leaves a join in progress alone and logs nothing.
+     */
+    fun nudge(why: String, quiet: Boolean = false) {
         if (!wanted || state != STATE_LOST) return
         val now = SystemClock.elapsedRealtime()
-        if (requestSince != 0L && now - requestSince > 8_000) {
-            appContext?.let { release(it.getSystemService(ConnectivityManager::class.java)) }
-            requestSince = 0
+        if (quiet) {
+            if (requestSince != 0L) return
+        } else {
+            if (requestSince != 0L && now - requestSince > 8_000) {
+                appContext?.let {
+                    release(it.getSystemService(ConnectivityManager::class.java))
+                }
+                requestSince = 0
+            }
+            DiagLog.add("link: $why, looking for the camera now")
         }
-        DiagLog.add("link: app back on screen, looking for the camera now")
         cooldownUntil = 0
         registerScanReceiver()
         startScan(now, force = true)
